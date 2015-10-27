@@ -1,12 +1,12 @@
 from monte_carlo_integration import mc_trapz, mc_simps
 from error_estimated_integration import integrate_with_uncertinaty
 import numpy as np
-from scipy.integrate import simps, trapz
+from scipy.integrate import trapz
 
 import pylab as pl
 
-np.random.seed(0)
-N = 30
+#np.random.seed(9)
+N = 15
 SIGMA = 1
 
 def test_piecewise_function():
@@ -45,10 +45,11 @@ def linear_function_evaluator(pt1, pt2, xi):
     return m*xi+c
 
 def f(x):
-    return 10*np.sin(x)
+    return np.sin(x) + 2*np.cos(3*x-.5) + 2*np.sin(x-.2)
 
 def get_xs_es(start, end, number_pts):
-    xs = np.linspace(start, end, number_pts)
+    #initial_pts = np.linspace(start, end, number_pts*2)[1:-1]
+    xs = list(np.linspace(start, end, number_pts))
     return xs, np.random.uniform(0, SIGMA, number_pts)
 
 def compair_integration():
