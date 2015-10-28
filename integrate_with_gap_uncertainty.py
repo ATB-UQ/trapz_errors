@@ -1,30 +1,25 @@
 import numpy as np
-from integration_with_point_uncertainty import get_xs_es
 import pylab as pl
 from scipy.integrate import simps, trapz
 from scipy import interpolate
 
-CONVERGENCE_RATE_SCALING = 0.9
+CONVERGENCE_RATE_SCALING = 1
 
 def second_derivative(pts):
     (x1, y1), (x2, y2), (x3, y3) = pts
     return abs((((y3-y2)/(x3-x2)) - ((y2-y1)/(x2-x1)) )/((x3-x1)/2.))
 
-def three_pt_second_derivative(pts, dx):
-    boundary_scaling_factor = (dx**3)/12.
-    return boundary_scaling_factor*second_derivative(pts)
+def trapz_interval_error(pts, dx):
+    return (dx**3)/12.*second_derivative(pts)
 
-def four_pt_second_derivative(pts):
-    dx = pts[2][0]-pts[1][0]
-    bulk_scaling_factor = (dx**3)/12.
-
-    second_derivative_right = second_derivative(pts[1:])
-    second_derivative_left = second_derivative(pts[:-1])
-    return bulk_scaling_factor*np.max([second_derivative_right, second_derivative_left])
+def four_pt_trapz_interval_error(pts):
+    dx = pts[2][0] - pts[1][0]
+    return np.max([trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)])
 
 def trapz_with_uncertainty(xs, ys):
     gap_xs, gap_ys, gap_es = get_gap_errors(xs, ys)
-    total_error_est = np.sum(gap_es)
+    #total_error_est = np.sum(gap_es)
+    total_error_est = np.sqrt(np.sum(np.square(gap_es)))
     return trapz(ys, xs), total_error_est, gap_xs, gap_ys, gap_es
 
 def get_gap_errors(xs, ys):
@@ -61,7 +56,7 @@ def get_gap_errors(xs, ys):
         # and a linearly extrapolated y-value using points 1 -> 2 (forward), and 4 -> 3 (reverse).   
         #yPt, err = calc_point_with_uncertainty_interpolation(gapXs, gapYs, x_gapCenter)
         yPt, err = calc_point_with_uncertainty_second_derivative(gapXs, gapYs, x_gapCenter)
-
+        print err
         gap_xs.append(x_gapCenter)
         gap_ys.append(yPt)
         gap_es.append(err)
@@ -86,13 +81,13 @@ def calc_point_with_uncertainty_second_derivative(x_pts, y_pts, x_center, bounda
     # calculate y-value by interpolation
     if boundary_left:
         y = calc_y_intersection_pt(pts[0], pts[1], x_center)
-        return y, three_pt_second_derivative(pts, dx=(pts[-1][0] - pts[-2][0]))
+        return y, trapz_interval_error(pts, dx=(pts[1][0] - pts[0][0]))
     if boundary_right:
         y = calc_y_intersection_pt(pts[1], pts[2], x_center)
-        return y, three_pt_second_derivative(pts, dx=(pts[1][0] - pts[0][0]))
+        return y, trapz_interval_error(pts, dx=(pts[-1][0] - pts[-2][0]))
     else:
         y = calc_y_intersection_pt(pts[1], pts[2], x_center)
-        return y, four_pt_second_derivative(pts)
+        return y, four_pt_trapz_interval_error(pts)
 
 def calc_point_with_uncertainty_interpolation(gapXs, gapYs, x_c):
     '''
@@ -171,7 +166,7 @@ def getXYE(avWatData):
 
 def filter_(xs, ys):
 
-    initPts = [x/10. for x in [0,  2.5, 4, 5, 7.5, 8.25,10]]
+    initPts = [x/10. for x in range(0,11,2)]
     newxs = []; newys = [];
     for i, x in enumerate(xs):
         if x in initPts:
@@ -192,20 +187,30 @@ def global_upper_bound(x_fine, y_fine, N):
 def get_realistic_function():
     xs, ys, es = getXYE(extract_fe_data(open("avWater.dvdl").read()))
     xs, ys = filter_(xs, ys)
-    ys = [y for y in ys]
-    f = interpolate.interp1d(xs, ys, kind=6)
+    ys = [10*y for y in ys]
+    f = interpolate.interp1d(xs, ys, kind=2)
     return f
 
-def additional_points(gap_xs, gap_es, current_error, target_error):
-    gap_error_pts = sorted(zip(gap_es, gap_xs))[::-1]
+def select_points_on_residule_error(gap_error_pts, residule_error):
     largest_error_xs = []
-    residule_error = current_error - target_error
     for e, x in gap_error_pts:
         largest_error_xs.append(x)
         residule_error -= (1./CONVERGENCE_RATE_SCALING)*0.75*e # since addition of a point to an interval reduces error by a factor of 1/4 => (e - e/4)
         if residule_error < 0:
             break
+    return largest_error_xs
 
+def select_points_on_average_error_tolerance(gap_error_pts, target_error):
+    average_error_tolerance = target_error/np.sqrt(len(gap_error_pts))
+    return [x for e, x in gap_error_pts if e > (1./CONVERGENCE_RATE_SCALING)*average_error_tolerance]
+
+def additional_points(gap_xs, gap_es, current_error, target_error, residule_method=True):
+    gap_error_pts = sorted(zip(gap_es, gap_xs))[::-1]
+    residule_error = current_error - target_error
+    if residule_method:
+        largest_error_xs = select_points_on_residule_error(gap_error_pts, residule_error)
+    else:
+        largest_error_xs = select_points_on_average_error_tolerance(gap_error_pts, target_error)
     return largest_error_xs
 
 
@@ -238,7 +243,7 @@ def trapz_errorbased_integration(function, a, b, target_uncertainty, plot=True):
         show_results(trapz_integral, trapz_est_error, fine_integral, xs, ys, gap_xs, gap_ys, gap_es, x_fine, y_fine, plot)
 
 def general_trapz_integration():
-    target_uncertainty = .5
+    target_uncertainty = 1
     f = get_realistic_function()
 
     a, b = 0, 1
@@ -250,7 +255,7 @@ def compair_integration():
     #f = lambda x:x**2
 
     start, end = 0, 1
-    xs, _ = get_xs_es(start, end, N)
+    xs = list(np.linspace(start, end, N))
     ys = map(f, xs)
 
     x_fine = np.linspace(start, end, N*100)
