@@ -1,7 +1,5 @@
 from scipy.integrate import trapz
 import numpy as np
-from integrate_with_gap_uncertainty import get_realistic_function
-from monte_carlo_integration import mc_trapz
 
 def calc_y_intersection_pt(pt1, pt2, x_c):
     '''
@@ -58,7 +56,7 @@ def interval_errors(xs, ys):
         gap_xs.append( (xs[i+1] + xs[i+2])/2. )
         gap_ys.append( calc_y_intersection_pt(pts[i+1], pts[i+2], gap_xs[i+1]) )
         gap_es.append( four_pt_trapz_interval_error(pts[i:i+4]) )
-        print gap_es[-1]
+        #print gap_es[-1]
 
     gap_xs.append( (xs[-1] + xs[-2])/2. )
     gap_ys.append( calc_y_intersection_pt(pts[-2], pts[-1], gap_xs[-1]) )
@@ -91,54 +89,5 @@ def trapz_integrate_with_uncertainty(xs, ys, es, rss=True, plot=False):
         ax.errorbar(xs, ys, es, marker="o")
         ax.errorbar(gap_xs, gap_ys, 12.*np.array(gap_errors), linestyle="")
         pl.show()
-    return trapz(ys, xs), total_error
+    return trapz(ys, xs), total_error, gap_xs, gap_errors, integration_point_errors
 
-def simple_test_function():
-    xs = [0, 1, 2]
-    ys = [0, 10, 0]
-    es = [0.5, 0.5, 0.5]
-    print integrate_with_point_uncertinaty(xs, ys, es)
-    print mc_trapz(xs, ys, es)
-    print integrate_with_gap_uncertinaty(xs, ys)
-    print trapz_integrate_with_uncertainty(xs, ys, es, plot=True)
-
-def periodic_test_function():
-    N = 11
-    a = 0
-    b = np.pi
-    f = lambda x: 100*(np.sin(x) + 2*np.cos(3*x-.5) + 2*np.sin(x-.2))
-    xs = list(np.linspace(a, b, N))
-    es = np.random.uniform(0, 10, N)
-    ys = map(f, xs)
-
-    x_fine = np.linspace(a, b, N*100)
-    y_fine = map(f, x_fine)
-    print trapz(y_fine, x_fine) - trapz(ys, xs)
-
-    print integrate_with_point_uncertinaty(xs, ys, es)
-    print mc_trapz(xs, ys, es)
-    print integrate_with_gap_uncertinaty(xs, ys, rss=True)
-    print trapz_integrate_with_uncertainty(xs, ys, es, plot=True)
-
-def interpolated_test_function():
-    N = 11
-    a = 0
-    b = 1
-    f = get_realistic_function()
-    xs = list(np.linspace(a, b, N))
-    es = np.random.uniform(0, 10, N)
-    ys = map(f, xs)
-
-    x_fine = np.linspace(a, b, N*100)
-    y_fine = map(f, x_fine)
-    print trapz(y_fine, x_fine) - trapz(ys, xs)
-
-    print integrate_with_point_uncertinaty(xs, ys, es)
-    print mc_trapz(xs, ys, es)
-    print integrate_with_gap_uncertinaty(xs, ys, rss=True)
-    print trapz_integrate_with_uncertainty(xs, ys, es, plot=True)
-
-if __name__=="__main__":
-    #simple_test_function()
-    periodic_test_function()
-    interpolated_test_function()

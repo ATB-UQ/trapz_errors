@@ -1,5 +1,5 @@
 from monte_carlo_integration import mc_trapz
-from error_estimated_integration import integrate_with_point_uncertinaty
+from integration_error_estimate import integrate_with_point_uncertinaty
 import numpy as np
 
 import pylab as pl

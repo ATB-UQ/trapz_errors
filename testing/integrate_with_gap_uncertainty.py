@@ -1,7 +1,7 @@
 import numpy as np
 import pylab as pl
 from scipy.integrate import simps, trapz
-from scipy import interpolate
+from simulated_iterative_integration import get_realistic_function
 
 CONVERGENCE_RATE_SCALING = 1
 
@@ -135,61 +135,6 @@ def calc_y_intersection_pt(pt1, pt2, x_c):
     # intersection with x_c
     yi = m*x_c + c
     return yi
-
-def extract_fe_data(rawData):
-    dvdlDict = {}
-    for row in rawData.splitlines():
-        if row.startswith("#") or not row:
-            continue
-        cols = row.split()
-        lam, dvdl, err = tuple(cols[:3])
-        lam = float(lam)
-        if not lam in dvdlDict.keys():
-            dvdlDict[lam] = {}
-        dvdlDict[lam].setdefault("dvdl", []).append(float(dvdl))
-        dvdlDict[lam].setdefault("err", []).append(float(err))
-    
-    avData = {}
-    for lam, vals in dvdlDict.items():
-        if not lam in avData.keys():
-            avData[lam] = {}
-        # average value
-        avData[lam]["dvdl"] = np.mean(vals["dvdl"])
-        avData[lam]["err"] = vals["err"][0]
-    return avData
-
-def getXYE(avWatData):
-    # prepair return data
-    pts = [(lam, val["dvdl"], val["err"]) for lam, val in sorted(avWatData.items(), key=lambda x:x[0])]
-    xs, ys, es = zip(*pts)
-    return np.array(xs), np.array(ys), np.array(es)
-
-def filter_(xs, ys):
-
-    initPts = [x/10. for x in range(0,11,2)]
-    newxs = []; newys = [];
-    for i, x in enumerate(xs):
-        if x in initPts:
-            newxs.append(x)
-            newys.append(ys[i])
-    return newxs, newys
-
-def max_2nd_derivative(xs, ys):
-    pts = zip(xs, ys)
-    return np.max([second_derivative(pts[i:i+3]) for i in range(len(pts)-3)])
-
-def global_upper_bound(x_fine, y_fine, N):
-    max_2nd_der = max_2nd_derivative(x_fine, y_fine)
-    dx = 1
-    bulk_scaling_factor = (dx**3)/(12.*(N-1)**2)
-    print bulk_scaling_factor*max_2nd_der
-
-def get_realistic_function():
-    xs, ys, es = getXYE(extract_fe_data(open("avWater.dvdl").read()))
-    xs, ys = filter_(xs, ys)
-    ys = [10*y for y in ys]
-    f = interpolate.interp1d(xs, ys, kind=2)
-    return f
 
 def select_points_on_residule_error(gap_error_pts, residule_error):
     largest_error_xs = []

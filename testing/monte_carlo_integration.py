@@ -1,27 +1,20 @@
 
-from scipy.integrate import simps, trapz
+from scipy.integrate import trapz
 from numpy import array, mean, std, random, ones
 import pylab as pl
 
-CONV_TOT = 0.001
+CONV_TOT = 0.01
 MAX_ITER = 50000
 MIN_ITER = 20
 
-def mc_simps(xs, ys, es):
-    simpIntegral = simps(ys, xs, even='avg')
-    errorEstSimps, conv = estErrorMC(xs, ys, es, simps)
-    if not conv:
-        print "WARNING: MC error estimate did not fully converge."
-    return simpIntegral, errorEstSimps
-
 def mc_trapz(xs, ys, es):
     trapIntegral = trapz(ys, xs)
-    errorEstTrap, conv = estErrorMC(xs, ys, es, trapz)
+    errorEstTrap, conv = est_error_mc(xs, ys, es, trapz)
     if not conv:
         print "WARNING: MC error estimate did not fully converge."
     return trapIntegral, errorEstTrap
 
-def estErrorMC(xs, ys, es, method, plot=False):
+def est_error_mc(xs, ys, es, method, plot=False):
     expctValue = method(ys, xs)
     y_trials = samplY(ys, es, MAX_ITER)
     trialResults = [method(y_trial, xs) for y_trial in y_trials]
