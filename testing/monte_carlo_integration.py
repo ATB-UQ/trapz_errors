@@ -1,6 +1,5 @@
-
-from scipy.integrate import trapz
-from numpy import array, mean, std, random, ones
+import sys
+from numpy import array, mean, std, random, ones, trapz
 import pylab as pl
 
 CONV_TOT = 0.01
@@ -11,7 +10,7 @@ def mc_trapz(xs, ys, es):
     trapIntegral = trapz(ys, xs)
     errorEstTrap, conv = est_error_mc(xs, ys, es, trapz)
     if not conv:
-        print "WARNING: MC error estimate did not fully converge."
+        sys.stderr.write("WARNING: MC error estimate did not fully converge.\n")
     return trapIntegral, errorEstTrap
 
 def est_error_mc(xs, ys, es, method, plot=False):

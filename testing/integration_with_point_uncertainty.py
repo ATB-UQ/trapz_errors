@@ -1,5 +1,6 @@
 from monte_carlo_integration import mc_trapz
-from integration_error_estimate import integrate_with_point_uncertinaty
+from helpers import rss
+from integration_error_estimate import point_error_calc
 import numpy as np
 
 import pylab as pl
@@ -7,6 +8,11 @@ import pylab as pl
 #np.random.seed(9)
 N = 50
 SIGMA = .5
+
+
+def integrate_with_point_uncertinaty(xs, ys, es):
+    integration_error_per_point = point_error_calc(xs, es)
+    return np.trapz(ys, xs), rss(integration_error_per_point)
 
 def test_piecewise_function():
     xs = range(0,20,2)
