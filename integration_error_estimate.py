@@ -1,8 +1,11 @@
 import sys
+import argparse
 import numpy as np
 from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative, \
     is_2nd_derivative_sign_balanced, parse_user_data
 from config import DEFAULT_FIGURE_NAME, IMBALANCED_2ND_DERIVATIVE_TOL
+
+DO_NOT_PLOT = "DO_NOT_PLOT"
 
 def point_error_calc(xs, es):
     '''
@@ -82,33 +85,34 @@ def trapz_integrate_with_uncertainty(xs, ys, es, use_rss=True):
         total_error = rss(integration_point_errors + total_gap_errors)
     return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors
 
-def parse_args():
-    import argparse
-
-    do_not_plot = "DO_NOT_PLOT"
-    parser = argparse.ArgumentParser(description='Integration Error Estimate')
-    parser.add_argument('-d', '--data', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
+def config_argparse():
+    argparser = argparse.ArgumentParser(description='Integration Error Estimate')
+    argparser.add_argument('-d', '--data', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
                         help="File containing data to integrate. Line format:<x> <y> [<error>]. Data can also be provided via stdin within argument.")
-    parser.add_argument('--rss',type=bool, default=True,
+    argparser.add_argument('--rss',type=bool, default=True,
                         help="Combine interval errors as the Root Sum of Squares. Should be set to false if 2nd derivative is predominantly +ve or -ve.")
-    parser.add_argument('-p', '--plot', nargs='?', type=str, default=do_not_plot,
+    argparser.add_argument('-p', '--plot', nargs='?', type=str, default=DO_NOT_PLOT,
                         help="Show plot of integration errors. Optional argument will determine where and in what format the figure will be saved in.")
-    parser.add_argument('-s', '--sigfigs', type=int, default=3,
+    argparser.add_argument('-s', '--sigfigs', type=int, default=3,
                         help="Number of significant figures in output.")
-    parser.add_argument('-v', '--verbose', action="store_true",
+    argparser.add_argument('-v', '--verbose', action="store_true",
                         help="Output error breakdown.")
-    a = parser.parse_args()
+    return argparser
 
-    figure_name = DEFAULT_FIGURE_NAME if a.plot is None else a.plot
-    figure_name = False if figure_name == do_not_plot else figure_name
+def process_plot_argument(args):
+    figure_name = DEFAULT_FIGURE_NAME if args.plot is None else args.plot
+    figure_name = False if figure_name == DO_NOT_PLOT else figure_name
     figure_name = "{0}.png".format(figure_name) if (figure_name and "." not in figure_name) else figure_name
+    return figure_name
 
-    data = parse_user_data(a.data.read())
-    return data, figure_name, a.rss, a.sigfigs, a.verbose
+def parse_args():
+    argparser = config_argparse()
+    args = argparser.parse_args()
+    figure_name = process_plot_argument(args)
+    data = parse_user_data(args.data.read())
+    return data, figure_name, args.rss, args.sigfigs, args.verbose
 
-def main():
-    data, figure_name, use_rss, sigfigs, verbose = parse_args()
-    xs, ys, es = data
+def run(xs, ys, es, use_rss, verbose, sigfigs):
     integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es, use_rss)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
@@ -123,8 +127,14 @@ def main():
     else:
         print result_string
 
+def main():
+    data, figure_name, use_rss, sigfigs, verbose = parse_args()
+    xs, ys, es = data
+    run()
+
     if figure_name:
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))
+    return 
 
 if __name__=="__main__":
     main()

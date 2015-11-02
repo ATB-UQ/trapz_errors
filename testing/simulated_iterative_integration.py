@@ -1,9 +1,10 @@
 import numpy as np
-from scipy.integrate import simps
-from integration_error_estimate import trapz_integrate_with_uncertainty
+from integration_error_estimate import trapz_integrate_with_uncertainty,\
+    plot_error_analysis
 from monte_carlo_integration import mc_trapz
 from scipy import interpolate
 from reduce_integration_uncertainty import reduce_error_on_average_error_tolerance, reduce_error_on_residule_error
+from helpers import parse_user_data
 
 SIGMA = 5
 N_INIT = 11
@@ -63,52 +64,27 @@ def trapz_errorbased_integration(function, a, b, target_uncertainty, plot=True):
     ys = map(function, xs)
     x_fine = np.linspace(a, b, 1000)
     y_fine = map(function, x_fine)
-    fine_integral = simps(y_fine, x_fine)
+    fine_integral = np.trapz(y_fine, x_fine)
     _, mc_error = mc_trapz(xs, ys, es)
-    trapz_integral, trapz_est_error, gap_xs, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es, plot=True)
+    trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
     print "Estimated integral: {0} +/- {1}".format(trapz_integral, trapz_est_error)
     print "Fine scale integral: {0} true error {1}".format(fine_integral, np.sqrt(abs(fine_integral-trapz_integral)**2 + mc_error**2))
+    plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors)
     while trapz_est_error > target_uncertainty:
         xs, es = simulate_updates(xs, es, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty)
         ys = map(function, xs)
-        trapz_integral, trapz_est_error, gap_xs, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es, plot=True)
+        trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
         _, mc_error = mc_trapz(xs, ys, es)
         print "Estimated integral: {0} +/- {1}".format(trapz_integral, trapz_est_error)
         print "Fine scale integral: {0} true error {1}".format(fine_integral, np.sqrt(abs(fine_integral-trapz_integral)**2 + mc_error**2))
+        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors)
 
 def get_realistic_function():
-    xs, ys, _ = getXYE(extract_fe_data(EXAMPLE_DVDL_DATA))
+    xs, ys, _ = parse_user_data(EXAMPLE_DVDL_DATA)
     xs, ys = filter_(xs, ys)
     ys = [y for y in ys]
     f = interpolate.interp1d(xs, ys, kind=2)
     return f
-
-def extract_fe_data(rawData):
-    dvdlDict = {}
-    for row in rawData.splitlines():
-        if row.startswith("#") or not row:
-            continue
-        cols = row.split()
-        lam, dvdl, err = tuple(cols[:3])
-        lam = float(lam)
-        if not lam in dvdlDict.keys():
-            dvdlDict[lam] = {}
-        dvdlDict[lam].setdefault("dvdl", []).append(float(dvdl))
-        dvdlDict[lam].setdefault("err", []).append(float(err))
-    avData = {}
-    for lam, vals in dvdlDict.items():
-        if not lam in avData.keys():
-            avData[lam] = {}
-        # average value
-        avData[lam]["dvdl"] = np.mean(vals["dvdl"])
-        avData[lam]["err"] = vals["err"][0]
-    return avData
-
-def getXYE(avWatData):
-    # prepair return data
-    pts = [(lam, val["dvdl"], val["err"]) for lam, val in sorted(avWatData.items(), key=lambda x:x[0])]
-    xs, ys, es = zip(*pts)
-    return np.array(xs), np.array(ys), np.array(es)
 
 def filter_(xs, ys):
     initPts = [x/10. for x in range(0,11,2)]

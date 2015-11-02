@@ -1,5 +1,7 @@
 import numpy as np
-CONVERGENCE_RATE_SCALING = 1
+from itertools import groupby
+from config import CONVERGENCE_RATE_SCALING
+from integration_error_estimate import config_argparse, process_plot_argument, parse_user_data
 
 def reduce_error_on_residule_error(error_pts, residule_error):
     largest_error_pts = []
@@ -26,14 +28,26 @@ def get_updates(xs, integration_point_errors, gap_xs, gap_errors, trapz_est_erro
     else:
         largest_error_pts = reduce_error_on_average_error_tolerance(combined_pts_errors, target_uncertainty)
 
-    # (xs, es)
-    new_pts = [pt[1] for pt in largest_error_pts if pt[-1] == "gap"]
-    update_xs = [pt[1] for pt in largest_error_pts if pt[-1] != "gap"]
+    is_gap = lambda x:x[-1] == "gap"
+    largest_error_pts = sorted(largest_error_pts, key=is_gap)
+    grouped_errors = []
+    for _, values in groupby(largest_error_pts, is_gap):
+        grouped_errors.append(list(values))
 
-    print "Intervals to recieve new points: {0:.1f}%".format(len(new_pts)/float(len(gap_xs))*100)
-    print "Update points: {0:.1f}%".format(len(update_xs)/float(len(xs))*100)
-
+    new_pts, update_xs = grouped_errors
     return new_pts, update_xs
 
+def parse_args():
+    argparser = config_argparse()
+    ###argparser.add_argument()
+    args = argparser.parse_args()
+    figure_name = process_plot_argument(args)
+    data = parse_user_data(args.data.read())
+    return data, figure_name, args.rss, args.sigfigs, args.verbose
+
 def reduce_integration_uncertainty():
-    pass
+    parse_args()
+    xs, integration_point_errors, gap_xs, gap_errors, trapz_est_error = integration_error_estimate.main()
+
+if __name__=="__main__":
+    reduce_integration_uncertainty()
