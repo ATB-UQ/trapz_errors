@@ -2,3 +2,4 @@
 DEFAULT_FIGURE_NAME = "integration_error_analysis.png"
 IMBALANCED_2ND_DERIVATIVE_TOL = 30 #%
 CONVERGENCE_RATE_SCALING = 1
+PARALLELIZATION_METHODS = ["residual", "average"]

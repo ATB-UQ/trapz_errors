@@ -94,7 +94,7 @@ def config_argparse():
     argparser.add_argument('-p', '--plot', nargs='?', type=str, default=DO_NOT_PLOT,
                         help="Show plot of integration errors. Optional argument will determine where and in what format the figure will be saved in.")
     argparser.add_argument('-s', '--sigfigs', type=int, default=3,
-                        help="Number of significant figures in output.")
+                        help="Number of significant figures in output. Default=3")
     argparser.add_argument('-v', '--verbose', action="store_true",
                         help="Output error breakdown.")
     return argparser
@@ -112,7 +112,10 @@ def parse_args():
     data = parse_user_data(args.data.read())
     return data, figure_name, args.rss, args.sigfigs, args.verbose
 
-def run(xs, ys, es, use_rss, verbose, sigfigs):
+def main():
+    data, figure_name, use_rss, sigfigs, verbose = parse_args()
+    xs, ys, es = np.array(data)
+
     integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es, use_rss)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
@@ -127,14 +130,8 @@ def run(xs, ys, es, use_rss, verbose, sigfigs):
     else:
         print result_string
 
-def main():
-    data, figure_name, use_rss, sigfigs, verbose = parse_args()
-    xs, ys, es = data
-    run()
-
     if figure_name:
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))
-    return 
 
 if __name__=="__main__":
     main()
