@@ -57,20 +57,20 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
     if not os.environ.has_key("DISPLAY"):
         import matplotlib
         matplotlib.use("Agg")
-    import pylab as pl
-    fig = pl.figure()
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
     ax = fig.add_subplot(111)
     fig.hold(True)
     ax.errorbar(xs, ys, es, marker="o", label="Integration Points")
     ax.errorbar(gap_xs, gap_ys, 12.*np.array(gap_errors), linestyle="", label="Relative Interval Errors")
-    pl.ylabel('y', fontweight="bold")
-    pl.xlabel('x', fontweight="bold")
-    pl.title(title, fontweight="bold")
-    pl.legend(loc = 'upper right', prop={'size':11}, numpoints = 1, frameon = False)
+    plt.ylabel('y', fontweight="bold")
+    plt.xlabel('x', fontweight="bold")
+    plt.title(title, fontweight="bold")
+    plt.legend(loc = 'upper right', prop={'size':11}, numpoints = 1, frameon = False)
     fig.tight_layout()
     if figure_name:
-        pl.savefig("{0}".format(figure_name))
-    pl.show()
+        plt.savefig("{0}".format(figure_name))
+    plt.show()
 
 def trapz_integrate_with_uncertainty(xs, ys, es, use_rss=True):
     integration_point_errors = point_error_calc(xs, es)
@@ -92,7 +92,7 @@ def config_argparse():
     argparser.add_argument('--rss',type=bool, default=True,
                         help="Combine interval errors as the Root Sum of Squares. Should be set to false if 2nd derivative is predominantly +ve or -ve.")
     argparser.add_argument('-p', '--plot', nargs='?', type=str, default=DO_NOT_PLOT,
-                        help="Show plot of integration errors. Optional argument will determine where and in what format the figure will be saved in.")
+                        help="Show plot of integration errors, requires matplotlib. Optional argument will determine where and in what format the figure will be saved in.")
     argparser.add_argument('-s', '--sigfigs', type=int, default=3,
                         help="Number of significant figures in output. Default=3")
     argparser.add_argument('-v', '--verbose', action="store_true",

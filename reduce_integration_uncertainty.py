@@ -94,20 +94,11 @@ def main():
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))
 
 if __name__=="__main__":
-    TE = 0.3
-    LOCAL_DEBUG = True
+    LOCAL_DEBUG = False
     if LOCAL_DEBUG:
         import sys
+        TE = 0.3
         sys.argv.extend(["-m", "average", "-v","-t", str(TE), "-d", "/mddata/uqmstroe/amine_refinement/united_atom/TI_data/TISolv_15_9402_TI_H2O/avWater.dvdl"])
         main()
     else:
         main()
-    import pylab as pl
-    fig = pl.figure()
-    ax = fig.add_subplot(111)
-    fig.hold(True)
-    
-    ax.plot(range(1,100), map(lambda x:TE/np.sqrt(x), range(1,100)))
-    ax.plot(range(1,100), map(lambda x:rss([TE/np.sqrt(x)]*x), range(1,100)))
-    ax.plot(range(1,100), map(lambda x:TE/float(x), range(1,100)))
-    pl.show()
