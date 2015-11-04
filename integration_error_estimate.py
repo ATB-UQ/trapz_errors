@@ -1,9 +1,8 @@
 import sys
 import argparse
 import numpy as np
-from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative, \
-    is_2nd_derivative_sign_balanced, parse_user_data
-from config import DEFAULT_FIGURE_NAME, IMBALANCED_2ND_DERIVATIVE_TOL
+from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative, parse_user_data
+from config import DEFAULT_FIGURE_NAME
 
 DO_NOT_PLOT = "DO_NOT_PLOT"
 
@@ -46,11 +45,14 @@ def interval_errors(xs, ys):
     return gap_xs, gap_ys, gap_es
 
 def trapz_interval_error(pts, dx):
-    return (dx**3)/12.*abs(second_derivative(pts))
+    return trapz_error_function(dx, second_derivative(pts))
+
+def trapz_error_function(dx, second_derivative):
+    return (dx**3)/12.*second_derivative
 
 def four_pt_trapz_interval_error(pts):
     dx = pts[2][0] - pts[1][0]
-    return np.max([trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)])
+    return sorted([trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)], key=lambda x:abs(x))[-1]
 
 def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title=""):
     import os
@@ -72,17 +74,15 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
         plt.savefig("{0}".format(figure_name))
     plt.show()
 
-def trapz_integrate_with_uncertainty(xs, ys, es, use_rss=True):
+def trapz_integrate_with_uncertainty(xs, ys, es, always_use_rss=False):
     integration_point_errors = point_error_calc(xs, es)
     gap_xs, gap_ys, gap_errors = interval_errors(xs, ys)
-    if use_rss:
-        total_error = rss(integration_point_errors + gap_errors)
-        if not is_2nd_derivative_sign_balanced(xs, ys):
-            sys.stderr.write("WARNING: The 2nd derivative sign for the data provided is unbalanced, i.e. 100*abs( (n_positive) - (n_negative) )/(n_total) > {0}%. " \
-            "This can cause underestimation of total truncation error, re-running with argument '--RSS False' will remove this risk.\n".format(IMBALANCED_2ND_DERIVATIVE_TOL))
-    else:
-        total_gap_errors = np.sum(gap_errors)
-        total_error = rss(integration_point_errors + total_gap_errors)
+    #total_error = rss(list(integration_point_errors) + list(gap_errors)) + error_skewness
+    #total_error = rss(list(integration_point_errors)) + error_skewness
+    total_error = rss(list(integration_point_errors)) + abs(np.sum(gap_errors))
+    #if not 100*error_skewness > IMBALANCED_2ND_DERIVATIVE_TOL:
+    #    sys.stderr.write("WARNING: The 2nd derivative sign for the data provided is unbalanced, i.e. 100*abs( (n_positive) - (n_negative) )/(n_total) > {0}%. " \
+    #    "This can cause underestimation of total truncation error, re-running with argument '--RSS False' will remove this risk.\n".format(IMBALANCED_2ND_DERIVATIVE_TOL))
     return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors
 
 def config_argparse():

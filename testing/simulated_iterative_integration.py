@@ -3,8 +3,9 @@ from integration_error_estimate import trapz_integrate_with_uncertainty,\
     plot_error_analysis
 from monte_carlo_integration import mc_trapz
 from scipy import interpolate
-from reduce_integration_uncertainty import reduce_error_on_average_error_tolerance, reduce_error_on_residule_error
+from reduce_integration_uncertainty import reduce_error_on_residual_error
 from helpers import parse_user_data
+from config import CONVERGENCE_RATE_SCALING
 
 SIGMA = 5
 N_INIT = 11
@@ -35,16 +36,13 @@ EXAMPLE_DVDL_DATA = '''
 0.950 -30.13460 0.54041
 1.000 3.15286 0.21252'''
 
-def simulate_updates(xs, es, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty, residule_method=True):
+def simulate_updates(xs, es, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty):
     n_gaps = len(gap_xs)
     gap_error_pts = zip(gap_errors, gap_xs, np.random.uniform(0, SIGMA, n_gaps), ["gap"]*n_gaps)
     pts_errors = zip(integration_point_errors, xs, es)
     combined_pts_errors = sorted( gap_error_pts + pts_errors )[::-1]
     residule_error = trapz_est_error - target_uncertainty
-    if residule_method:
-        largest_error_pts = reduce_error_on_residule_error(combined_pts_errors, residule_error)
-    else:
-        largest_error_pts = reduce_error_on_average_error_tolerance(combined_pts_errors, target_uncertainty)
+    largest_error_pts = reduce_error_on_residual_error(combined_pts_errors, residule_error, CONVERGENCE_RATE_SCALING)
 
     # (xs, es)
     new_pts = [(pt[1], pt[2]) for pt in largest_error_pts if pt[-1] == "gap"]
@@ -71,13 +69,13 @@ def trapz_errorbased_integration(function, a, b, target_uncertainty, plot=True):
     print "Fine scale integral: {0} true error {1}".format(fine_integral, np.sqrt(abs(fine_integral-trapz_integral)**2 + mc_error**2))
     plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors)
     while trapz_est_error > target_uncertainty:
-        xs, es = simulate_updates(xs, es, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty)
+        xs, es = simulate_updates(xs, es, integration_point_errors, gap_xs, np.abs(gap_errors), trapz_est_error, target_uncertainty)
         ys = map(function, xs)
         trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
         _, mc_error = mc_trapz(xs, ys, es)
         print "Estimated integral: {0} +/- {1}".format(trapz_integral, trapz_est_error)
         print "Fine scale integral: {0} true error {1}".format(fine_integral, np.sqrt(abs(fine_integral-trapz_integral)**2 + mc_error**2))
-        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors)
+        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, np.abs(gap_errors))
 
 def get_realistic_function():
     xs, ys, _ = parse_user_data(EXAMPLE_DVDL_DATA)

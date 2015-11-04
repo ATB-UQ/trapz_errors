@@ -48,21 +48,13 @@ def second_derivative(pts):
     (x1, y1), (x2, y2), (x3, y3) = pts
     return ((y3-y2)/(x3-x2) - (y2-y1)/(x2-x1))/((x3-x1)/2.)
 
-def is_2nd_derivative_sign_balanced(xs, ys):
+def is_2nd_derivative_sign_balanced(sign_imbalance):
+    return sign_imbalance <= IMBALANCED_2ND_DERIVATIVE_TOL
+
+def get_2nd_derivative_sign_imbalanced(xs, ys):
     pts = zip(xs, ys)
     second_derivatives = sorted([second_derivative(pts[i:i+3]) for i in range(len(pts)-3)])
-
-    grouped_second_derivatives = []
-    for _, values in groupby(second_derivatives, lambda x:x <= 0):
-        grouped_second_derivatives.append(list(values))
-
-    if len(grouped_second_derivatives) < 2:
-        return False
-
-    n_negative_2nd_der = len(grouped_second_derivatives[0])
-    n_positive_2nd_der = len(grouped_second_derivatives[1])
-    sign_imbalance = 100*abs(n_negative_2nd_der - n_positive_2nd_der)/(n_negative_2nd_der + n_positive_2nd_der)
-    return sign_imbalance <= IMBALANCED_2ND_DERIVATIVE_TOL
+    return 100.*abs(np.sum(second_derivatives)/float(np.sum(np.abs(second_derivatives))))
 
 def parse_user_data(data):
     # first attempt to get xs, ys and errors

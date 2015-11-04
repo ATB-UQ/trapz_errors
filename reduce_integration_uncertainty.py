@@ -15,21 +15,14 @@ def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_s
 
     return largest_error_pts
 
-def reduce_error_on_average_error_tolerance(error_pts, target_error, convergence_rate_scaling):
-    average_error_tolerance = target_error/np.sqrt(len(error_pts))
-    return [pt for pt in error_pts if pt[0] > (1./convergence_rate_scaling)*average_error_tolerance]
-
-def get_updates(xs, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty, convergence_rate_scaling, parallelization_method="residual"):
+def get_updates(xs, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty, convergence_rate_scaling):
     n_gaps = len(gap_xs)
     gap_error_pts = zip(gap_errors, gap_xs, ["gap"]*n_gaps)
     pts_errors = zip(integration_point_errors, xs)
 
     combined_pts_errors = sorted( gap_error_pts + pts_errors )[::-1]
     residule_error = trapz_est_error - target_uncertainty
-    if parallelization_method == "residual":
-        largest_error_pts = reduce_error_on_residual_error(combined_pts_errors, residule_error, convergence_rate_scaling)
-    else:
-        largest_error_pts = reduce_error_on_average_error_tolerance(combined_pts_errors, target_uncertainty, convergence_rate_scaling)
+    largest_error_pts = reduce_error_on_residual_error(combined_pts_errors, residule_error, convergence_rate_scaling)
 
     is_gap = lambda x:x[-1] == "gap"
     largest_error_pts = sorted(largest_error_pts, key=is_gap)
@@ -56,7 +49,7 @@ def parse_args():
 def main():
     data, figure_name, use_rss, sigfigs, verbose, target_error, convergence_rate_scaling = parse_args()
     xs, ys, es = np.array(data)
-    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es, use_rss)
+    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, _ = trapz_integrate_with_uncertainty(xs, ys, es, use_rss)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
     result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))

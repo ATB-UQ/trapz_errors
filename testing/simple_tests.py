@@ -6,11 +6,10 @@ from simulated_iterative_integration import get_realistic_function
 from integration_with_point_uncertainty import integrate_with_point_uncertinaty
 from monte_carlo_integration import mc_trapz
 from integration_error_estimate import trapz_integrate_with_uncertainty, interval_errors, plot_error_analysis
-from helpers import rss
 
-def integrate_with_gap_uncertinaty(xs, ys, use_rss=True):
+def integrate_with_gap_uncertinaty(xs, ys):
     _, _, gap_es = interval_errors(xs, ys)
-    total_error_est = rss(gap_es) if use_rss else np.sum(gap_es)
+    total_error_est = abs(np.sum(gap_es))
     return np.trapz(ys, xs), total_error_est
 
 def run_test(xs, ys, es, x_fine=None, y_fine=None):
