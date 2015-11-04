@@ -1,6 +1,6 @@
 import numpy as np
 from itertools import groupby
-from config import CONVERGENCE_RATE_SCALING, PARALLELIZATION_METHODS
+from config import CONVERGENCE_RATE_SCALING
 from integration_error_estimate import config_argparse, process_plot_argument, parse_user_data, \
     plot_error_analysis, trapz_integrate_with_uncertainty
 from helpers import round_sigfigs, rss
@@ -48,17 +48,13 @@ def parse_args():
                         help="Scaling factor for rate of convergence to target error i.e. determines iterations required to reach target error. "\
                         "e.g. A value < 1 will result in more iterations but fewer overall points as the points will be concentrated in regions of high "\
                         "uncertainty; conversely values > 1 will result it more points but fewer iterations required to reach a given target error. Default=1.")
-    argparser.add_argument('-m', '--parallelization_method', type=str, choices=PARALLELIZATION_METHODS, default="residual",
-                        help="Method for determining how error reduction actions are chosen (e.g. addition of points or reducing uncertainty in existing points). "\
-                        "Both methods choose points/intervals with highest error: 'residual' method adds until (1/convergence_rate_scaling)*(0.75)*sum(errors) > current_error - target_error; "\
-                        "'average' method adds all error sources greater than (1./convergence_rate_scaling)*average_error_tolerance where average_error_tolerance = target_error/sqrt(n_error_sources)")
     args = argparser.parse_args()
     figure_name = process_plot_argument(args)
     data = parse_user_data(args.data.read())
-    return data, figure_name, args.rss, args.sigfigs, args.verbose, args.target_error, args.convergence_rate_scaling, args.parallelization_method
+    return data, figure_name, args.rss, args.sigfigs, args.verbose, args.target_error, args.convergence_rate_scaling
 
 def main():
-    data, figure_name, use_rss, sigfigs, verbose, target_error, convergence_rate_scaling, parallelization_method = parse_args()
+    data, figure_name, use_rss, sigfigs, verbose, target_error, convergence_rate_scaling = parse_args()
     xs, ys, es = np.array(data)
     integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es, use_rss)
 
@@ -80,7 +76,7 @@ def main():
         print result_string
 
     if total_error > target_error:
-        new_pts, update_xs = get_updates(xs, integration_point_errors, gap_xs, gap_errors, total_error, target_error, convergence_rate_scaling, parallelization_method)
+        new_pts, update_xs = get_updates(xs, integration_point_errors, gap_xs, gap_errors, total_error, target_error, convergence_rate_scaling)
         if new_pts:
             print "Suggested new points:"
             print ",".join(["{0:g}".format(round_sf(p[1])) for p in new_pts])
@@ -94,11 +90,11 @@ def main():
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))
 
 if __name__=="__main__":
-    LOCAL_DEBUG = False
+    LOCAL_DEBUG = True
     if LOCAL_DEBUG:
         import sys
         TE = 0.3
-        sys.argv.extend(["-m", "average", "-v","-t", str(TE), "-d", "/mddata/uqmstroe/amine_refinement/united_atom/TI_data/TISolv_15_9402_TI_H2O/avWater.dvdl"])
+        sys.argv.extend(["-v","-t", str(TE), "-d", "/mddata/uqmstroe/amine_refinement/united_atom/TI_data/TISolv_15_9402_TI_H2O/avWater.dvdl"])
         main()
     else:
         main()
