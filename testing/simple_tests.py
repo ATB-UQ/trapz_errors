@@ -6,11 +6,12 @@ from simulated_iterative_integration import get_realistic_function
 from integration_with_point_uncertainty import integrate_with_point_uncertinaty
 from monte_carlo_integration import mc_trapz
 from integration_error_estimate import trapz_integrate_with_uncertainty, interval_errors, plot_error_analysis
+from helpers import rss
 
-def integrate_with_gap_uncertinaty(xs, ys):
-    _, _, gap_es = interval_errors(xs, ys)
-    total_error_est = abs(np.sum(gap_es))
-    return np.trapz(ys, xs), total_error_est
+def integrate_with_gap_uncertinaty(xs, ys, es):
+    _, _, gap_es = interval_errors(xs, ys, es)
+    truncation_error, truncation_error_error = np.abs(np.sum(zip(*gap_es)[0])), rss(zip(*gap_es)[1])
+    return np.trapz(ys, xs), truncation_error, truncation_error_error
 
 def run_test(xs, ys, es, x_fine=None, y_fine=None):
     if x_fine is not None:
@@ -18,12 +19,12 @@ def run_test(xs, ys, es, x_fine=None, y_fine=None):
         print "Integral: {0}".format(integral)
         print "True truncation error: {0}".format(trapz(ys, xs) - integral)
     mc_integral, mc_error = mc_trapz(xs, ys, es)
-    print "Truncation error estimate: {0} +/- {1}".format(*integrate_with_gap_uncertinaty(xs, ys))
+    print "Truncation error estimate: {0} +/- {1}".format(*integrate_with_gap_uncertinaty(xs, ys, es)[1:])
     print "Monte Carlo integral point uncertainty: {0} +/- {1}".format(mc_integral, mc_error)
     print "Analytical integral point uncertainty: {0} +/- {1}".format(*integrate_with_point_uncertinaty(xs, ys, es))
     trapz_integral, total_error, gap_xs, gap_ys, gap_errors, _ = trapz_integrate_with_uncertainty(xs, ys, es)
     print "Combined error estimate: {0} +/- {1}".format(trapz_integral, total_error)
-    plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors)
+    plot_error_analysis(xs, ys, es, gap_xs, gap_ys, zip(*gap_errors)[0])
 
 def simple_test_function():
     xs = [0, 1, 2]

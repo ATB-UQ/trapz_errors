@@ -1,6 +1,4 @@
 import numpy as np
-from itertools import groupby
-from config import IMBALANCED_2ND_DERIVATIVE_TOL
 
 def round_sigfigs(num, sig_figs):
     """Round to specified number of sigfigs.
@@ -34,8 +32,8 @@ def calc_y_intersection_pt(pt1, pt2, x_c):
     '''
     Return the point at the intersection of the linear function defined by pt1,pt2 and the line x = x_c
     '''
-    x1, y1 = pt1
-    x2, y2 = pt2
+    x1, y1, _ = pt1
+    x2, y2, _ = pt2
     # gradient of line 1
     m = (y2 - y1)/float(x2 - x1)
     # y-intercept of line1
@@ -45,16 +43,14 @@ def calc_y_intersection_pt(pt1, pt2, x_c):
     return yi
 
 def second_derivative(pts):
-    (x1, y1), (x2, y2), (x3, y3) = pts
-    return ((y3-y2)/(x3-x2) - (y2-y1)/(x2-x1))/((x3-x1)/2.)
+    (x1, y1, e1), (x2, y2, e2), (x3, y3, e3) = pts
+    d32 = float(x3-x2)
+    d21 = float(x2-x1)
+    d31_over_2 = float(x3-x1)/2.
 
-def is_2nd_derivative_sign_balanced(sign_imbalance):
-    return sign_imbalance <= IMBALANCED_2ND_DERIVATIVE_TOL
-
-def get_2nd_derivative_sign_imbalanced(xs, ys):
-    pts = zip(xs, ys)
-    second_derivatives = sorted([second_derivative(pts[i:i+3]) for i in range(len(pts)-3)])
-    return 100.*abs(np.sum(second_derivatives)/float(np.sum(np.abs(second_derivatives))))
+    second_der = ((y3-y2)/d32 - (y2-y1)/d21)/d31_over_2
+    error = np.sqrt(np.sum(np.square([e3/d32, e2/d32, e2/d21, e1/d21])))/d31_over_2
+    return second_der, error
 
 def parse_user_data(data):
     # first attempt to get xs, ys and errors
@@ -64,3 +60,18 @@ def parse_user_data(data):
         # now try just xs and ys with errors set to 0.0
         xs, ys, es = zip(*[map(l.split()[:2]) + [0.0] for l in data.splitlines() if l and not l.startswith("#")])
     return xs, ys, es
+
+if __name__=="__main__":
+    xs = [0, 1, 2]
+    ys = [0, 10, 0]
+    es = [0.5, 0.5, 0.5]
+    pts = zip(xs, ys, es)
+    print second_derivative(pts)
+    samples = []
+    for i in range(10000):
+        es = np.random.normal(0, 0.5, 3).transpose()
+        pts = zip(xs, np.array(ys) + es, es)
+        samples.append(second_derivative(pts)[0])
+    print len(samples)
+    print np.mean(samples)
+    print np.std(samples)

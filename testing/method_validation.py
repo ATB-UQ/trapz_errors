@@ -2,10 +2,8 @@ import json
 import os
 import glob
 from itertools import groupby
-from helpers import parse_user_data, rss, round_sigfigs,\
-    get_2nd_derivative_sign_imbalanced
+from helpers import parse_user_data, rss, round_sigfigs
 import numpy as np
-from scipy.integrate import simps
 import matplotlib.pyplot as plt
 from integration_error_estimate import trapz_integrate_with_uncertainty
 DATA_FILE = "av_dvdl.json"
@@ -89,7 +87,8 @@ def run():
 
     print "larger error"
     n = 0
-    for molid, result in sorted(results.items(), key=lambda x:previous_results[x[0]]["Err"]):
+    #for molid, result in sorted(results.items(), key=lambda x:previous_results[x[0]]["Err"]):
+    for molid, result in sorted(results.items(), key=lambda x:x[1][1]):
         print "old {0:5}: {1:>5g} +/- {2:g}".format(molid, round_sf(previous_results[molid]["DG"]), round_sf(previous_results[molid]["Err"]))
         print "new {0:5}: {1:>5g} +/- {2:g}".format(molid, result[0], result[1])
         print "dif {0:5}: {1:>5g} ({2})".format(molid, previous_results[molid]["DG"] - result[0], result[1])
