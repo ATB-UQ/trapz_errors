@@ -49,7 +49,9 @@ def trapz_interval_error(pts, dx):
 
 def four_pt_trapz_interval_error(pts):
     dx = pts[2][0] - pts[1][0]
-    return sorted([trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)], key=lambda x:abs(x[0]))[-1]
+    backwards_2nd_der, forwards_2nd_der = trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)
+    #return sorted([trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)], key=lambda x:abs(x[0]))[-1]
+    return np.mean([backwards_2nd_der[0], forwards_2nd_der[0]]), rss([backwards_2nd_der[1]/2., forwards_2nd_der[1]/2.])
 
 def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title=""):
     import os
@@ -76,7 +78,7 @@ def trapz_integrate_with_uncertainty(xs, ys, es):
     gap_xs, gap_ys, gap_errors = interval_errors(xs, ys, es)
     #total_error = rss(list(integration_point_errors) + list(gap_errors)) + error_skewness
     #total_error = rss(list(integration_point_errors)) + error_skewness
-    total_error = rss(list(integration_point_errors) + list(zip(*gap_errors)[1])) + np.abs(np.sum(zip(*gap_errors)[0]))
+    total_error = rss(list(integration_point_errors)) + np.abs(np.sum(zip(*gap_errors)[0])) + rss(zip(*gap_errors)[1])
     #if not 100*error_skewness > IMBALANCED_2ND_DERIVATIVE_TOL:
     #    sys.stderr.write("WARNING: The 2nd derivative sign for the data provided is unbalanced, i.e. 100*abs( (n_positive) - (n_negative) )/(n_total) > {0}%. " \
     #    "This can cause underestimation of total truncation error, re-running with argument '--RSS False' will remove this risk.\n".format(IMBALANCED_2ND_DERIVATIVE_TOL))

@@ -29,7 +29,7 @@ def est_error_mc(xs, ys, es, method, plot=False):
     return std(trialResults), converged(trialResults, expctValue)
 
 def samplY(ys, es, N):
-    yTrial = [random.normal(mu, sig, N) if sig > 0 else mu*ones(N) for mu, sig in zip(ys, es)]
+    yTrial = [random.normal(mu, sig, N) for mu, sig in zip(ys, es)]
     return array(yTrial).transpose()
 
 def converged(trialResults, expctValue):
