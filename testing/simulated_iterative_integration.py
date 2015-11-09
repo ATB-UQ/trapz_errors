@@ -1,11 +1,11 @@
 import numpy as np
 from integration_error_estimate import trapz_integrate_with_uncertainty,\
     plot_error_analysis
-from monte_carlo_integration import mc_trapz
 from scipy import interpolate
 from reduce_integration_uncertainty import reduce_error_on_residual_error
-from helpers import parse_user_data
+from helpers import parse_user_data, rss
 from config import CONVERGENCE_RATE_SCALING
+from testing.integration_with_point_uncertainty import integrate_with_point_uncertinaty
 
 SIGMA = 5
 N_INIT = 11
@@ -56,6 +56,26 @@ def simulate_updates(xs, es, integration_point_errors, gap_xs, gap_errors, trapz
 
     return xs, es
 
+
+def show_results(xs, es, ys, fine_integral, trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors):
+    #print "Monte Carlo integral point uncertainty: {0} +/- {1}".format(mc_integral, mc_error)
+    _, point_uncertainty = integrate_with_point_uncertinaty(xs, ys, es)
+    print "Analytical integral point uncertainty: +/-{0}".format(point_uncertainty)
+    print "Truncation error estimate: {0} +/- {1}".format(np.sum(zip(*gap_errors)[0]), rss(zip(*gap_errors)[1]))
+    print "True truncation error: {0}".format(trapz_integral - fine_integral)
+    print
+    print "Estimated integral: {0} +/- {1}".format(trapz_integral, trapz_est_error)
+    print "Fine scale integral: {0} true error {1}".format(fine_integral, abs(fine_integral - trapz_integral) + point_uncertainty)
+    plot_error_analysis(xs, ys, es, gap_xs, gap_ys, np.abs(zip(*gap_errors)[0]))
+
+
+def do_iteration(function, target_uncertainty, xs, es, ys, fine_integral):
+    ys = map(function, xs)
+    trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
+    #mc_integral, mc_error = mc_trapz(xs, ys, es)
+    show_results(xs, es, ys, fine_integral, trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors)
+    return integration_point_errors, gap_xs, gap_errors, trapz_est_error
+
 def trapz_errorbased_integration(function, a, b, target_uncertainty, plot=True):
     xs = np.linspace(0, 1, 11)
     es = np.random.uniform(0, SIGMA, N_INIT)
@@ -63,25 +83,15 @@ def trapz_errorbased_integration(function, a, b, target_uncertainty, plot=True):
     x_fine = np.linspace(a, b, 1000)
     y_fine = map(function, x_fine)
     fine_integral = np.trapz(y_fine, x_fine)
-    _, mc_error = mc_trapz(xs, ys, es)
-    trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
-    print "Estimated integral: {0} +/- {1}".format(trapz_integral, trapz_est_error)
-    print "Fine scale integral: {0} true error {1}".format(fine_integral, np.sqrt(abs(fine_integral-trapz_integral)**2 + mc_error**2))
-    plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors)
+    integration_point_errors, gap_xs, gap_errors, trapz_est_error = do_iteration(function, target_uncertainty, xs, es, ys, fine_integral)
     while trapz_est_error > target_uncertainty:
-        xs, es = simulate_updates(xs, es, integration_point_errors, gap_xs, np.abs(gap_errors), trapz_est_error, target_uncertainty)
-        ys = map(function, xs)
-        trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
-        _, mc_error = mc_trapz(xs, ys, es)
-        print "Estimated integral: {0} +/- {1}".format(trapz_integral, trapz_est_error)
-        print "Fine scale integral: {0} true error {1}".format(fine_integral, np.sqrt(abs(fine_integral-trapz_integral)**2 + mc_error**2))
-        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, np.abs(gap_errors))
+        xs, es = simulate_updates(xs, es, integration_point_errors, gap_xs, np.abs(zip(*gap_errors)[0]), trapz_est_error, target_uncertainty)
+        integration_point_errors, gap_xs, gap_errors, trapz_est_error = do_iteration(function, target_uncertainty, xs, es, ys, fine_integral)
 
 def get_realistic_function():
     xs, ys, _ = parse_user_data(EXAMPLE_DVDL_DATA)
     xs, ys = filter_(xs, ys)
-    ys = [y for y in ys]
-    f = interpolate.interp1d(xs, ys, kind=2)
+    f = interpolate.interp1d(xs, ys, kind=3)
     return f
 
 def filter_(xs, ys):
@@ -98,7 +108,7 @@ def simulated_trapz_integration():
     f = get_realistic_function()
 
     a, b = 0, 1
-    trapz_errorbased_integration(lambda x:10*f(x), a, b, target_uncertainty)
+    trapz_errorbased_integration(f, a, b, target_uncertainty)
 
 if __name__=="__main__":
     simulated_trapz_integration()

@@ -50,8 +50,8 @@ def trapz_interval_error(pts, dx):
 def four_pt_trapz_interval_error(pts):
     dx = pts[2][0] - pts[1][0]
     backwards_2nd_der, forwards_2nd_der = trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)
-    #return sorted([trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)], key=lambda x:abs(x[0]))[-1]
-    return np.mean([backwards_2nd_der[0], forwards_2nd_der[0]]), rss([backwards_2nd_der[1]/2., forwards_2nd_der[1]/2.])
+    return sorted([backwards_2nd_der, forwards_2nd_der], key=lambda x:abs(x[0]))[-1]
+    #return np.mean([backwards_2nd_der[0], forwards_2nd_der[0]]), rss([backwards_2nd_der[1], forwards_2nd_der[1]])
 
 def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title=""):
     import os

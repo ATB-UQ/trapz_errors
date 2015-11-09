@@ -1,5 +1,4 @@
 import json
-import pickle
 import os
 import glob
 from itertools import groupby
@@ -13,7 +12,8 @@ RESULTS_FILE = "previous_results.json"
 DATA_DIR = "av_dvdl_data"
 RESULTS_DIR = "final_results"
 INTEGRATION_RESULTS = "integration_results.json"
-ERROR_CUTOFF = 3
+ERROR_CUTOFF = 5
+BOUNDS_PADDING = 0.2
 def parse_data_dir():
     data = {}
     sort_func = lambda x:os.path.basename(x).split("_")[0]
@@ -60,12 +60,15 @@ def get_data(data_file, generation_method, args=[], method=json):
         method.dump(data, open(data_file, "w"))
     return data
 
-def plot_data(xs, ys, es):
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    fig.hold(True)
-    ax.errorbar(xs, ys, es, marker="o", label="Integration Points")
-    plt.show()
+def plot_data(xs, ys, es, show=True, ax=None, marker="o"):
+    if ax is None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        fig.hold(True)
+    ax.errorbar(xs, ys, es, marker=marker, label="Integration Points")
+    if show:
+        plt.show()
+    return ax
 
 def get_realistic_function(xs, ys):
     f = interpolate.interp1d(xs, ys, kind=3)
@@ -99,22 +102,82 @@ def re_run_integration():
             print
     print n
 
-    print "larger error"
+    print "sorted error"
     n = 0
     #for molid, result in sorted(results.items(), key=lambda x:previous_results[x[0]]["Err"]):
     for molid, result in sorted(results.items(), key=lambda x:x[1][1]):
-        if True or previous_results[molid]["Err"] < result[1]:
-            x_fine = np.linspace(0, 1, 100)
-            f = get_realistic_function(result[-4], result[-3])
-            plot_data(result[-4], result[-3], np.zeros(len(result[-4])))
-            plot_data(x_fine, map(f, x_fine), np.zeros(len(x_fine)))
-            print "old {0:5}: {1:>5g} +/- {2:g}".format(molid, round_sf(previous_results[molid]["DG"]), round_sf(previous_results[molid]["Err"]))
-            print "new {0:5}: {1:>5g} +/- {2:g}".format(molid, result[0], result[1])
-            print "dif {0:5}: {1:>5g} ({2})".format(molid, previous_results[molid]["DG"] - result[0], result[1])
-            gap_errors = result[4]
-            print "error breakdown: point error={0:g}, truncation error={1:g} +/- {2:g}".format(rss(result[4]), np.abs(np.sum(zip(*gap_errors)[0])), rss(zip(*gap_errors)[1]))
-            print
-            n += 1
+        #if previous_results[molid]["Err"] < result[1]:
+        print "old {0:5}: {1:>5g} +/- {2:g}".format(molid, round_sf(previous_results[molid]["DG"]), round_sf(previous_results[molid]["Err"]))
+        print "new {0:5}: {1:>5g} +/- {2:g}".format(molid, result[0], result[1])
+        print "dif {0:5}: {1:>5g} ({2})".format(molid, previous_results[molid]["DG"] - result[0], result[1])
+        gap_errors = result[4]
+        print "error breakdown: point error={0:g}, truncation error={1:g} +/- {2:g}".format(rss(result[5]), np.abs(np.sum(zip(*gap_errors)[0])), rss(zip(*gap_errors)[1]))
+        print
+        n += 1
     print n
+
+def plot_to_axis(ax, actual_values, estimated_values):
+
+    all_value = np.abs(actual_values + estimated_values)
+    bounds = (min(all_value)-BOUNDS_PADDING, max(all_value)+BOUNDS_PADDING)
+
+    markerSize = 10
+    lineWidth = 1.25
+    width = 1.25 # table borders and ticks
+    tickWidth = 0.75
+    fontSize = 12
+    #mew = 1
+
+    symbols = (u'o', u'v', u'^', u'<', u'>', u's', u'p', u'h', u'H', u'D', u'd')
+    ax.plot(actual_values, estimated_values, "^", color="k", linestyle='None', label = "true vs predicted values", markersize = markerSize)
+
+
+    #ax11.plot(x,y, '^',color=color,linestyle='None', label = 'ATB Version 2.2',markersize = markerSize, zorder=3)
+    #ax11.plot(x,y, 'x',linestyle='None',label = 'Test Set molecules',markersize = markerSize-2, mew=mew)
+
+    ax.plot(bounds, bounds, linestyle='--', color ='k', linewidth=lineWidth)
+
+    plt.ylabel('Predicted truncation error', fontsize = fontSize, fontweight="bold")
+
+    plt.xlabel('Actual truncation error', fontsize = fontSize, fontweight="bold")
+    plt.xlim(bounds)
+    plt.ylim(bounds)
+
+    plt.xticks(fontsize = fontSize, fontweight="bold")
+    plt.yticks(fontsize = fontSize, fontweight="bold")
+
+    [i.set_linewidth(width) for i in ax.spines.itervalues()]
+    plt.tick_params(which='major', length = 4, color ='k', width =tickWidth)
+
+    #plt.legend(loc = 'lower right', prop={'size':11}, numpoints = 1, frameon = False)
+    return
+
+def run_error_stats():
+    PLOT=False
+    data = get_data(DATA_FILE, parse_data_dir)
+    results = get_data(INTEGRATION_RESULTS, get_results, [data])
+    round_sf = lambda x:round_sigfigs(x, 3)
+    x_fine = np.linspace(0, 1, 100)
+    truncation_errors = []
+    estimated_truncation_error = []
+    for molid, result in sorted(results.items(), key=lambda x:x[1][1]):
+        if PLOT:
+            f = get_realistic_function(result[-4], result[-3])
+            ax = plot_data(result[-4], result[-3], np.zeros(len(result[-4])), show=False)
+            plot_data(x_fine, map(f, x_fine), np.zeros(len(x_fine)), ax=ax, marker="")
+        gap_errors = result[4]
+        print molid
+        truncation_errors.append(abs(result[0] - result[-1]))
+        estimated_truncation_error.append(np.abs(np.sum(zip(*gap_errors)[0])) + rss(zip(*gap_errors)[1]))
+        #estimated_truncation_error.append(np.abs(rss(zip(*gap_errors)[0])))
+        print "True truncation error: {0:>5g} ({1})".format(result[-1], abs(result[0] - result[-1]))
+        print "error breakdown: point error={0:g}, truncation error={1:g} +/- {2:g}".format(rss(result[5]), np.abs(np.sum(zip(*gap_errors)[0])), rss(zip(*gap_errors)[1]))
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    fig.hold(True)
+    plot_to_axis(ax, truncation_errors, estimated_truncation_error)
+    print "Percentage under estimated: {0}%".format(100*float(len([1 for te, ete in zip(truncation_errors, estimated_truncation_error) if te > ete]))/float(len(truncation_errors)))
+    plt.show()
 if __name__=="__main__":
-    run()
+    #re_run_integration()
+    run_error_stats()
