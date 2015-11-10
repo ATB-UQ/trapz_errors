@@ -1,3 +1,4 @@
+import pickle
 import json
 import os
 import glob
@@ -7,13 +8,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from integration_error_estimate import trapz_integrate_with_uncertainty
 from scipy import interpolate, integrate
-DATA_FILE = "av_dvdl.json"
-RESULTS_FILE = "previous_results.json"
+from reduce_integration_uncertainty import reduce_error_on_residual_error
+DATA_FILE = "av_dvdl.pick"
+RESULTS_FILE = "previous_results.pick"
 DATA_DIR = "av_dvdl_data"
 RESULTS_DIR = "final_results"
-INTEGRATION_RESULTS = "integration_results.json"
-ERROR_CUTOFF = 5
+INTEGRATION_RESULTS = "integration_results.pick"
+ERROR_CUTOFF = 200
 BOUNDS_PADDING = 0.2
+TARGET_ERROR = 0.2
+INIT_PTS = list(np.linspace(0, 1, num=5))
+X_FINE = list(np.linspace(0, 1, num=100))
 def parse_data_dir():
     data = {}
     sort_func = lambda x:os.path.basename(x).split("_")[0]
@@ -52,7 +57,7 @@ def remove_duplicates(data):
         data_filtered.append(d)
     return zip(*data_filtered)
 
-def get_data(data_file, generation_method, args=[], method=json):
+def get_data(data_file, generation_method, args=[], method=pickle):
     if os.path.exists(data_file):
         data = method.load(open(data_file))
     else:
@@ -70,25 +75,59 @@ def plot_data(xs, ys, es, show=True, ax=None, marker="o"):
         plt.show()
     return ax
 
-def get_realistic_function(xs, ys):
-    f = interpolate.interp1d(xs, ys, kind=3)
-    return f
+def get_realistic_function(xs, ys, n_divisions=2):
 
-def get_results(data):
+    def get_pt_x_division(pts):
+        return [0.5*(pts[i][0] + pts[i+1][0]) for i in range(len(pts) - 1)]
+
+    pts = zip(xs, ys)
+    sorted_y = sorted(pts, key=lambda x:x[1])
+    min_y_pt, max_y_pt = sorted_y[0], sorted_y[-1]
+    min_x_pt, max_x_pt = pts[0], pts[-1]
+    mid_pt = get_pts_closest_to(pts, [0.5])[0]
+    initial_pts = sorted([mid_pt, min_y_pt, max_y_pt, min_x_pt, max_x_pt])
+    filtered_pts = initial_pts
+    for _ in range(n_divisions):
+        filtered_pts.extend(get_pts_closest_to(pts, get_pt_x_division(sorted(filtered_pts))))
+
+    filtered_pts = sorted(list(set(filtered_pts)))
+    filtered_x, filtered_y = zip(*filtered_pts)
+    #plot_data(filtered_x, filtered_y, np.zeros(len(filtered_y)))
+    f = interpolate.interp1d(filtered_x, filtered_y, kind=3)
+    #f = interpolate.InterpolatedUnivariateSpline(filtered_x, filtered_y)
+    return lambda x:float(f(x))
+
+def get_pts_closest_to(pts, xs):
+    sort_x_dist = lambda x_0: lambda x:abs(x[0] - x_0)
+    return [sorted(pts, key=sort_x_dist(x))[0] for x in xs]
+
+def get_results(data, num_iterations):
     results = {}
     round_sf = lambda x:round_sigfigs(x, 3)
     for molid, dvdl in data.items():
         if any([e > ERROR_CUTOFF for e in dvdl[2]]):
             continue
-        res = trapz_integrate_with_uncertainty(*dvdl)
         f = get_realistic_function(dvdl[0], dvdl[1])
-        results[molid] = map(round_sf, res[:2]) + list(res[2:]) + dvdl + [integrate.quad(f, 0, 1)[0]]
+        iteration_results = []
+        true_integral = integrate.quad(f, 0, 1, epsabs=1e-03, epsrel=1e-3,)[0]
+        generated_pts = [INIT_PTS, map(f, INIT_PTS), list(np.zeros(len(INIT_PTS)))]
+        for _ in range(num_iterations):
+            calc_integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(*generated_pts)
+            iteration_results.append(map(round_sf, [calc_integral, total_error]) + [gap_xs, gap_ys, gap_errors, integration_point_errors] + [map(f, X_FINE)] + generated_pts + [true_integral])
+            gap_error_pts = zip(zip(*gap_errors)[0], gap_xs)
+            largest_gap_error = reduce_error_on_residual_error(gap_error_pts, total_error-TARGET_ERROR, 1)
+            if largest_gap_error:
+                largest_gap_errors_x = zip(*largest_gap_error)[1]
+            else:
+                largest_gap_errors_x = []
+            generated_pts = zip(*sorted(zip(*generated_pts) + zip(largest_gap_errors_x, map(f, largest_gap_errors_x), list(np.zeros(len(largest_gap_errors_x))) )))
+        results[molid] = iteration_results
     return results
 
 def re_run_integration():
     data = get_data(DATA_FILE, parse_data_dir)
     previous_results = get_data(RESULTS_FILE, parse_results_dir)
-    results = get_data(INTEGRATION_RESULTS, get_results, [data])
+    results = get_data(INTEGRATION_RESULTS, get_results, [data, 2])
     round_sf = lambda x:round_sigfigs(x, 3)
     print "integral difference"
     n = 0
@@ -118,7 +157,7 @@ def re_run_integration():
 
 def plot_to_axis(ax, actual_values, estimated_values):
 
-    all_value = np.abs(actual_values + estimated_values)
+    all_value = np.abs(actual_values + list(estimated_values))
     bounds = (min(all_value)-BOUNDS_PADDING, max(all_value)+BOUNDS_PADDING)
 
     markerSize = 10
@@ -129,7 +168,8 @@ def plot_to_axis(ax, actual_values, estimated_values):
     #mew = 1
 
     symbols = (u'o', u'v', u'^', u'<', u'>', u's', u'p', u'h', u'H', u'D', u'd')
-    ax.plot(actual_values, estimated_values, "^", color="k", linestyle='None', label = "true vs predicted values", markersize = markerSize)
+    #ax.scatter(actual_values, estimated_values, marker="o", alpha=0.5, label = "true vs predicted values", s = (np.array(N)/2.)**2)
+    ax.scatter(actual_values, estimated_values, marker="o", alpha=0.5, label = "true vs predicted values")
 
 
     #ax11.plot(x,y, '^',color=color,linestyle='None', label = 'ATB Version 2.2',markersize = markerSize, zorder=3)
@@ -153,31 +193,36 @@ def plot_to_axis(ax, actual_values, estimated_values):
     return
 
 def run_error_stats():
-    PLOT=False
+    PLOT=True
     data = get_data(DATA_FILE, parse_data_dir)
-    results = get_data(INTEGRATION_RESULTS, get_results, [data])
+    results = get_data(INTEGRATION_RESULTS, get_results, [data, 6])
     round_sf = lambda x:round_sigfigs(x, 3)
     x_fine = np.linspace(0, 1, 100)
-    truncation_errors = []
-    estimated_truncation_error = []
-    for molid, result in sorted(results.items(), key=lambda x:x[1][1]):
-        if PLOT:
-            f = get_realistic_function(result[-4], result[-3])
-            ax = plot_data(result[-4], result[-3], np.zeros(len(result[-4])), show=False)
-            plot_data(x_fine, map(f, x_fine), np.zeros(len(x_fine)), ax=ax, marker="")
-        gap_errors = result[4]
-        print molid
-        truncation_errors.append(abs(result[0] - result[-1]))
-        estimated_truncation_error.append(np.abs(np.sum(zip(*gap_errors)[0])) + rss(zip(*gap_errors)[1]))
-        #estimated_truncation_error.append(np.abs(rss(zip(*gap_errors)[0])))
-        print "True truncation error: {0:>5g} ({1})".format(result[-1], abs(result[0] - result[-1]))
-        print "error breakdown: point error={0:g}, truncation error={1:g} +/- {2:g}".format(rss(result[5]), np.abs(np.sum(zip(*gap_errors)[0])), rss(zip(*gap_errors)[1]))
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    fig.hold(True)
-    plot_to_axis(ax, truncation_errors, estimated_truncation_error)
-    print "Percentage under estimated: {0}%".format(100*float(len([1 for te, ete in zip(truncation_errors, estimated_truncation_error) if te > ete]))/float(len(truncation_errors)))
-    plt.show()
+
+    print len(results)
+    n = 0
+    for i in range(len(results.values()[0])):
+        truncation_errors = []
+        estimated_truncation_error = []
+        n += 1
+        for molid, iteration_results in results.items():
+            result = iteration_results[i]
+            gap_errors = result[4]
+            print molid
+            truncation_errors.append(abs(result[0] - result[-1]))
+            estimated_truncation_error.append( (np.abs(np.sum(zip(*gap_errors)[0])))) #+ rss(zip(*gap_errors)[1]))
+            #estimated_truncation_error.append(np.abs(rss(zip(*gap_errors)[0])))
+            print "True truncation error: {0:>5g} ({1})".format(result[-1], abs(result[0] - result[-1]))
+            print "error breakdown: point error={0:g}, truncation error={1:g} +/- {2:g}".format(rss(result[5]), np.abs(np.sum(zip(*gap_errors)[0])), rss(zip(*gap_errors)[1]))
+            if PLOT and n > 6 and abs(result[0] - result[-1]) - np.abs(np.sum(zip(*gap_errors)[0])) > 0.2:
+                ax = plot_data(result[-4], result[-3], np.zeros(len(result[-4])), show=False)
+                plot_data(X_FINE, result[-5], np.zeros(len(x_fine)), ax=ax, marker="")
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        fig.hold(True)
+        plot_to_axis(ax, truncation_errors, estimated_truncation_error)
+        print "Percentage under estimated: {0}%".format(100*float(len([1 for te, ete in zip(truncation_errors, estimated_truncation_error) if te > ete]))/float(len(truncation_errors)))
+        plt.show()
 if __name__=="__main__":
     #re_run_integration()
     run_error_stats()

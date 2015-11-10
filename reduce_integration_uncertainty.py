@@ -49,7 +49,7 @@ def parse_args():
 def main():
     data, figure_name, use_rss, sigfigs, verbose, target_error, convergence_rate_scaling = parse_args()
     xs, ys, es = np.array(data)
-    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, _ = trapz_integrate_with_uncertainty(xs, ys, es, use_rss)
+    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es, use_rss)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
     result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))

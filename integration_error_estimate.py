@@ -4,6 +4,7 @@ import numpy as np
 from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative, parse_user_data
 from config import DEFAULT_FIGURE_NAME
 
+
 DO_NOT_PLOT = "DO_NOT_PLOT"
 
 def point_error_calc(xs, es):
@@ -21,7 +22,7 @@ def point_error_calc(xs, es):
     # return half the RSS of individual errors (factor of 2 is due to double counting of domain).
     return errors
 
-def interval_errors(xs, ys, es):
+def interval_errors(xs, ys, es, forward=True):
     '''
     Based on analytical Trapezoidal error function with 2nd derivative estimated numerically:
     https://en.wikipedia.org/wiki/Trapezoidal_rule#Error_analysis
@@ -35,7 +36,12 @@ def interval_errors(xs, ys, es):
     for i in range(len(xs)-3):
         gap_xs.append( (xs[i+1] + xs[i+2])/2. )
         gap_ys.append( calc_y_intersection_pt(pts[i+1], pts[i+2], gap_xs[i+1]) )
-        gap_es.append( four_pt_trapz_interval_error(pts[i:i+4]) )
+        dx = xs[i+2] - xs[i+1]
+        if forward:
+            gap_es.append( trapz_interval_error(pts[i:i+3], dx) )
+        else:
+            # reverse
+            gap_es.append( trapz_interval_error(pts[i+1:i+4], dx) )
         #print gap_es[-1]
 
     gap_xs.append( (xs[-1] + xs[-2])/2. )
@@ -46,12 +52,6 @@ def interval_errors(xs, ys, es):
 
 def trapz_interval_error(pts, dx):
     return list((dx**3)/12.*np.array(second_derivative(pts)))
-
-def four_pt_trapz_interval_error(pts):
-    dx = pts[2][0] - pts[1][0]
-    backwards_2nd_der, forwards_2nd_der = trapz_interval_error(pts[1:], dx), trapz_interval_error(pts[:-1], dx)
-    return sorted([backwards_2nd_der, forwards_2nd_der], key=lambda x:abs(x[0]))[-1]
-    #return np.mean([backwards_2nd_der[0], forwards_2nd_der[0]]), rss([backwards_2nd_der[1], forwards_2nd_der[1]])
 
 def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title=""):
     import os
@@ -75,7 +75,11 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
 
 def trapz_integrate_with_uncertainty(xs, ys, es):
     integration_point_errors = point_error_calc(xs, es)
-    gap_xs, gap_ys, gap_errors = interval_errors(xs, ys, es)
+    forward_results = interval_errors(xs, ys, es, forward=True)
+    backwards_results = interval_errors(xs, ys, es, forward=False)
+    gap_xs, gap_ys, gap_errors = sorted([forward_results, backwards_results], key=lambda x:np.abs(np.sum(zip(*x[-1])[0])))[-1]
+    #gap_xs, gap_ys = forward_results[:-1]
+    #gap_errors = list(map(list,np.mean([forward_results[-1], backwards_results[-1]], axis=0)))
     #total_error = rss(list(integration_point_errors) + list(gap_errors)) + error_skewness
     #total_error = rss(list(integration_point_errors)) + error_skewness
     total_error = rss(list(integration_point_errors)) + np.abs(np.sum(zip(*gap_errors)[0])) + rss(zip(*gap_errors)[1])
