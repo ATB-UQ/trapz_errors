@@ -1,7 +1,7 @@
 import sys
 import argparse
 import numpy as np
-from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative, parse_user_data
+from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
 from config import DEFAULT_FIGURE_NAME
 
 
@@ -51,7 +51,9 @@ def interval_errors(xs, ys, es, forward=True):
     return gap_xs, gap_ys, gap_es
 
 def trapz_interval_error(pts, dx):
-    return list((dx**3)/12.*np.array(second_derivative(pts)))
+    #second_der, error = second_derivative_with_uncertainty(pts)
+    second_der, _ = second_derivative_with_uncertainty(pts)
+    return (dx**3)/12.*np.array(second_der)
 
 def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title=""):
     import os
@@ -73,20 +75,22 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
         plt.savefig("{0}".format(figure_name))
     plt.show()
 
-def trapz_integrate_with_uncertainty(xs, ys, es):
+def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
     integration_point_errors = point_error_calc(xs, es)
     forward_results = interval_errors(xs, ys, es, forward=True)
     backwards_results = interval_errors(xs, ys, es, forward=False)
-    gap_xs, gap_ys, gap_errors = sorted([forward_results, backwards_results], key=lambda x:np.abs(np.sum(zip(*x[-1])[0])))[-1]
-    #gap_xs, gap_ys = forward_results[:-1]
-    #gap_errors = list(map(list,np.mean([forward_results[-1], backwards_results[-1]], axis=0)))
-    #total_error = rss(list(integration_point_errors) + list(gap_errors)) + error_skewness
-    #total_error = rss(list(integration_point_errors)) + error_skewness
-    total_error = rss(list(integration_point_errors)) + np.abs(np.sum(zip(*gap_errors)[0])) + rss(zip(*gap_errors)[1])
-    #if not 100*error_skewness > IMBALANCED_2ND_DERIVATIVE_TOL:
-    #    sys.stderr.write("WARNING: The 2nd derivative sign for the data provided is unbalanced, i.e. 100*abs( (n_positive) - (n_negative) )/(n_total) > {0}%. " \
-    #    "This can cause underestimation of total truncation error, re-running with argument '--RSS False' will remove this risk.\n".format(IMBALANCED_2ND_DERIVATIVE_TOL))
-    return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors
+    gap_xs, gap_ys, gap_errors = sorted([forward_results, backwards_results], key=lambda x:np.abs(np.sum(x[-1])))[-1]
+    point_uncertainty_error = rss(list(integration_point_errors))
+    sum_gap_errors = np.abs(np.sum(gap_errors))
+
+    max_interval_error = np.max(np.abs(np.concatenate((forward_results[-1], backwards_results[-1]))))
+    forward_reverse_diff = np.abs(np.abs(np.sum(forward_results[-1])) - np.abs(np.sum(backwards_results[-1])))
+    #error_safety_policy = max_interval_error + forward_reverse_diff if be_conservative else 0.0
+    error_safety_policy = max(max_interval_error, forward_reverse_diff) if be_conservative else 0.0
+    #total_error = rss(list(integration_point_errors)) + np.abs(np.sum(zip(*gap_errors)[0])) + rss(zip(*gap_errors)[1]) + np.max(np.abs(zip(*gap_errors)[0])) + np.abs(abs(np.sum(zip(*forward_results[-1])[0])) - abs(np.sum(zip(*backwards_results[-1])[0])))
+    total_error = point_uncertainty_error + sum_gap_errors + error_safety_policy
+
+    return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, error_safety_policy
 
 def config_argparse():
     argparser = argparse.ArgumentParser(description='Integration Error Estimate')
@@ -117,16 +121,16 @@ def main():
     data, figure_name, sigfigs, verbose = parse_args()
     xs, ys, es = np.array(data)
 
-    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
+    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, error_safety_policy = trapz_integrate_with_uncertainty(xs, ys, es)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
     result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))
     if verbose:
         value_error = round_sf(rss(integration_point_errors))
         print "Error from y-value uncertainty: +/- {0:g}".format(value_error)
-        truncation_error, truncation_error_error = map(round_sf, [np.abs(np.sum(zip(*gap_errors)[0])), rss(zip(*gap_errors)[1])])
-        print "Estimated truncation error: {0:g} +/- {1:g}".format(truncation_error, truncation_error_error)
-        print "Total error = sqrt(y-value_error^2 + truncation_error^2): +/- {0:g}".format(round_sf(rss([value_error, truncation_error])))
+        truncation_error = round_sf(np.sum(gap_errors))
+        print "Estimated truncation error: {1:g}".format(truncation_error)
+        print "Total error = y-value_error + |truncation_error|: +/- {0:g}".format(round_sf(value_error + np.abs(truncation_error)))
         print "Integral: {0}".format(result_string)
     else:
         print result_string

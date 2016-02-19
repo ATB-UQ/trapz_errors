@@ -1,11 +1,11 @@
 import numpy as np
 from integration_error_estimate import trapz_integrate_with_uncertainty,\
-    plot_error_analysis
+    plot_error_analysis, point_error_calc
 from scipy import interpolate
 from reduce_integration_uncertainty import reduce_error_on_residual_error
 from helpers import parse_user_data, rss
 from config import CONVERGENCE_RATE_SCALING
-from testing.integration_with_point_uncertainty import integrate_with_point_uncertinaty
+
 
 SIGMA = 5
 N_INIT = 11
@@ -36,13 +36,17 @@ EXAMPLE_DVDL_DATA = '''
 0.950 -30.13460 0.54041
 1.000 3.15286 0.21252'''
 
+def integrate_with_point_uncertinaty(xs, ys, es):
+    integration_error_per_point = point_error_calc(xs, es)
+    return np.trapz(ys, xs), rss(integration_error_per_point)
+
 def simulate_updates(xs, es, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty):
     n_gaps = len(gap_xs)
     gap_error_pts = zip(gap_errors, gap_xs, np.random.uniform(0, SIGMA, n_gaps), ["gap"]*n_gaps)
     pts_errors = zip(integration_point_errors, xs, es)
     combined_pts_errors = sorted( gap_error_pts + pts_errors )[::-1]
     residule_error = trapz_est_error - target_uncertainty
-    largest_error_pts = reduce_error_on_residual_error(combined_pts_errors, residule_error, CONVERGENCE_RATE_SCALING)
+    largest_error_pts = reduce_error_on_residual_error(combined_pts_errors, residule_error, CONVERGENCE_RATE_SCALING, be_conservative=True)
 
     # (xs, es)
     new_pts = [(pt[1], pt[2]) for pt in largest_error_pts if pt[-1] == "gap"]
@@ -59,19 +63,19 @@ def simulate_updates(xs, es, integration_point_errors, gap_xs, gap_errors, trapz
 
 def show_results(xs, es, ys, fine_integral, trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors):
     #print "Monte Carlo integral point uncertainty: {0} +/- {1}".format(mc_integral, mc_error)
-    _, point_uncertainty = integrate_with_point_uncertinaty(xs, ys, es)
-    print "Analytical integral point uncertainty: +/-{0}".format(point_uncertainty)
-    print "Truncation error estimate: {0} +/- {1}".format(np.sum(zip(*gap_errors)[0]), rss(zip(*gap_errors)[1]))
+    trap_integral, point_uncertainty = integrate_with_point_uncertinaty(xs, ys, es)
+    print "Analytical integral point uncertainty: {0} +/- {1}".format(trap_integral, point_uncertainty)
+    print "Truncation error estimate: {0} +/- {1}".format(trap_integral, np.abs(np.sum(gap_errors)))
     print "True truncation error: {0}".format(trapz_integral - fine_integral)
     print
     print "Estimated integral: {0} +/- {1}".format(trapz_integral, trapz_est_error)
     print "Fine scale integral: {0} true error {1}".format(fine_integral, abs(fine_integral - trapz_integral) + point_uncertainty)
-    plot_error_analysis(xs, ys, es, gap_xs, gap_ys, np.abs(zip(*gap_errors)[0]))
+    plot_error_analysis(xs, ys, es, gap_xs, gap_ys, np.abs(gap_errors))
 
 
 def do_iteration(function, target_uncertainty, xs, es, ys, fine_integral):
     ys = map(function, xs)
-    trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors = trapz_integrate_with_uncertainty(xs, ys, es)
+    trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors, integration_point_errors, error_safety_policy = trapz_integrate_with_uncertainty(xs, ys, es)
     #mc_integral, mc_error = mc_trapz(xs, ys, es)
     show_results(xs, es, ys, fine_integral, trapz_integral, trapz_est_error, gap_xs, gap_ys, gap_errors)
     return integration_point_errors, gap_xs, gap_errors, trapz_est_error
@@ -85,7 +89,7 @@ def trapz_errorbased_integration(function, a, b, target_uncertainty, plot=True):
     fine_integral = np.trapz(y_fine, x_fine)
     integration_point_errors, gap_xs, gap_errors, trapz_est_error = do_iteration(function, target_uncertainty, xs, es, ys, fine_integral)
     while trapz_est_error > target_uncertainty:
-        xs, es = simulate_updates(xs, es, integration_point_errors, gap_xs, np.abs(zip(*gap_errors)[0]), trapz_est_error, target_uncertainty)
+        xs, es = simulate_updates(xs, es, integration_point_errors, gap_xs, np.abs(gap_errors), trapz_est_error, target_uncertainty)
         integration_point_errors, gap_xs, gap_errors, trapz_est_error = do_iteration(function, target_uncertainty, xs, es, ys, fine_integral)
 
 def get_realistic_function():
