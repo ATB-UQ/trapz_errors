@@ -1,5 +1,4 @@
 import numpy as np
-from itertools import groupby
 from config import CONVERGENCE_RATE_SCALING
 from integration_error_estimate import config_argparse, process_plot_argument, parse_user_data, \
     plot_error_analysis, trapz_integrate_with_uncertainty
@@ -38,12 +37,9 @@ def get_updates(xs, integration_point_errors, gap_xs, gap_errors, trapz_est_erro
     largest_error_pts = reduce_error_on_residual_error(combined_pts_errors, residule_error, convergence_rate_scaling, be_conservative)
 
     is_gap = lambda x:x[-1] == "gap"
-    largest_error_pts = sorted(largest_error_pts, key=is_gap)
-    grouped_errors = []
-    for _, values in groupby(largest_error_pts, is_gap):
-        grouped_errors.append(list(values))
 
-    update_xs, new_pts = grouped_errors
+    update_xs = [e for e in largest_error_pts if not is_gap(e)]
+    new_pts = [e for e in largest_error_pts if is_gap(e)]
     return new_pts, update_xs
 
 def parse_args():
@@ -57,29 +53,29 @@ def parse_args():
     args = argparser.parse_args()
     figure_name = process_plot_argument(args)
     data = parse_user_data(args.data.read())
-    return data, figure_name, args.rss, args.sigfigs, args.verbose, args.target_error, args.convergence_rate_scaling
+    return data, figure_name, args.be_conservative, args.sigfigs, args.verbose, args.target_error, args.convergence_rate_scaling
 
 def main():
     data, figure_name, be_conservative, sigfigs, verbose, target_error, convergence_rate_scaling = parse_args()
     xs, ys, es = np.array(data)
-    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, error_safety_policy = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
+    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
     result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))
     if verbose:
         value_error = round_sf(rss(integration_point_errors))
         print "Error from y-value uncertainty: +/- {0:g}".format(value_error)
-        truncation_error = round_sf(np.sum(gap_errors) + error_safety_policy if be_conservative else np.sum(gap_errors))
+        truncation_error = round_sf(np.sum(gap_errors) if be_conservative else np.sum(gap_errors))
         print "Estimated truncation error: {0:g}".format(truncation_error)
-        print "Total error = y-value_error + |truncation_error|: +/- {0:g}".format(round_sf(np.sum([value_error, truncation_error])))
+        if be_conservative:
+            print "Additional error component: {0:g}".format(round_sf(conservative_error_adjustment))
         print "Integral: {0}".format(result_string)
 
-        print "Truncation errors: interval midpoint (+/- error)"
-        print "\n".join(["{1:<6g}(+/- {0:g})".format(*map(round_sf, d)) for d in sorted(zip(gap_errors, gap_xs))[::-1]])
-        print "Point errors: point (+/- error)"
-        print "\n".join(["{1:<6g}(+/- {0:g})".format(*map(round_sf, d)) for d in sorted(zip(integration_point_errors, xs))[::-1]])
-        if be_conservative:
-            print "Additional error component: {0:g}".format(round_sf(error_safety_policy))
+        print "Truncation errors: interval midpoint -> error"
+        print "\n".join(["{1:<6.4f} -> {0:>7.4f}".format(*map(round_sf, d)) for d in sorted(zip(gap_errors, gap_xs), key=lambda x:abs(x[0]))[::-1]])
+        print "Point errors: point -> +/- error"
+        print "\n".join(["{1:<6.4f} -> +/- {0:6.4f}".format(*map(round_sf, d)) for d in sorted(zip(integration_point_errors, xs))[::-1]])
+
     else:
         print result_string
 

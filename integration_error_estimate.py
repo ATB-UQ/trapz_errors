@@ -55,7 +55,7 @@ def trapz_interval_error(pts, dx):
     second_der, _ = second_derivative_with_uncertainty(pts)
     return (dx**3)/12.*np.array(second_der)
 
-def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title=""):
+def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title="", show=True):
     import os
     if not os.environ.has_key("DISPLAY"):
         import matplotlib
@@ -72,8 +72,9 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
     plt.legend(loc = 'upper right', prop={'size':11}, numpoints = 1, frameon = False)
     fig.tight_layout()
     if figure_name:
-        plt.savefig("{0}".format(figure_name))
-    plt.show()
+        plt.savefig(figure_name, format="png")
+    if show:
+        plt.show()
 
 def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
     integration_point_errors = point_error_calc(xs, es)
@@ -85,10 +86,10 @@ def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
 
     max_interval_error = np.max(np.abs(np.concatenate((forward_results[-1], backwards_results[-1]))))
     forward_reverse_diff = np.abs(np.abs(np.sum(forward_results[-1])) - np.abs(np.sum(backwards_results[-1])))
-    #error_safety_policy = max_interval_error + forward_reverse_diff if be_conservative else 0.0
-    error_safety_policy = max(max_interval_error, forward_reverse_diff) if be_conservative else 0.0
-    #total_error = rss(list(integration_point_errors)) + np.abs(np.sum(zip(*gap_errors)[0])) + rss(zip(*gap_errors)[1]) + np.max(np.abs(zip(*gap_errors)[0])) + np.abs(abs(np.sum(zip(*forward_results[-1])[0])) - abs(np.sum(zip(*backwards_results[-1])[0])))
-    total_error = point_uncertainty_error + sum_gap_errors + error_safety_policy
+
+    error_safety_policy = max(max_interval_error, forward_reverse_diff)
+
+    total_error = point_uncertainty_error + sum_gap_errors + (error_safety_policy if be_conservative else 0.0)
 
     return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, error_safety_policy
 
@@ -102,6 +103,8 @@ def config_argparse():
                         help="Number of significant figures in output. Default=3")
     argparser.add_argument('-v', '--verbose', action="store_true",
                         help="Output error breakdown.")
+    argparser.add_argument('-b', '--be_conservative', action="store_true",
+                        help="Make a conservative estimate of the uncertainty.")
     return argparser
 
 def process_plot_argument(args):
@@ -115,28 +118,29 @@ def parse_args():
     args = argparser.parse_args()
     figure_name = process_plot_argument(args)
     data = parse_user_data(args.data.read())
-    return data, figure_name, args.sigfigs, args.verbose
+    return data, figure_name, args.sigfigs, args.verbose, args.be_conservative
 
 def main():
-    data, figure_name, sigfigs, verbose = parse_args()
+    data, figure_name, sigfigs, verbose, be_conservative = parse_args()
     xs, ys, es = np.array(data)
 
-    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, error_safety_policy = trapz_integrate_with_uncertainty(xs, ys, es)
+    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
     result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))
     if verbose:
         value_error = round_sf(rss(integration_point_errors))
         print "Error from y-value uncertainty: +/- {0:g}".format(value_error)
-        truncation_error = round_sf(np.sum(gap_errors))
+        truncation_error = round_sf(np.sum(gap_errors) + conservative_error_adjustment if be_conservative else np.sum(gap_errors))
         print "Estimated truncation error: {1:g}".format(truncation_error)
-        print "Total error = y-value_error + |truncation_error|: +/- {0:g}".format(round_sf(value_error + np.abs(truncation_error)))
+        if be_conservative:
+            print "Additional error component: {0:g}".format(round_sf(conservative_error_adjustment))
         print "Integral: {0}".format(result_string)
     else:
         print result_string
 
     if figure_name:
-        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))
+        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string), show=True)
 
 if __name__=="__main__":
     main()
