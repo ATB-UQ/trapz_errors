@@ -22,7 +22,7 @@ def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_s
         # We simply assume the same is true for reducing the uncertainty on an existing point.
         # The convergence rate scaling factor allows for additional control over the number of points
         # that will be added on each iteration.
-        residule_error -= abs(1./convergence_rate_scaling)*0.75*pt[0]
+        residule_error -= (1./convergence_rate_scaling)*0.75*abs(pt[0])
 
     return largest_error_pts
 
