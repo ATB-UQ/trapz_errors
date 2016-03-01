@@ -10,19 +10,19 @@ def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_s
         # since pts are already sorted we can simply filter out all non-gap points and take the first which remains
         largest_gap_error_pt = [pt for pt in error_pts if pt[-1] == "gap"][0]
     largest_error_pts = []
-    for pt in error_pts:
+    for pt in sorted(error_pts, key=lambda x:abs(x[0]))[::-1]:
         if residule_error < 0:
             break
         largest_error_pts.append(pt)
         # Add special case for largest gap error if we're being conservative
         if be_conservative and pt == largest_gap_error_pt:
-            residule_error -= pt[0]
+            residule_error -= abs(pt[0])
         # Since addition of a point to an interval reduces error by a factor of 1/4 according 
         # to the truncation error estimate method we're using => (e - e/4) = 0.75*e.
         # We simply assume the same is true for reducing the uncertainty on an existing point.
         # The convergence rate scaling factor allows for additional control over the number of points
         # that will be added on each iteration.
-        residule_error -= (1./convergence_rate_scaling)*0.75*pt[0]
+        residule_error -= abs(1./convergence_rate_scaling)*0.75*pt[0]
 
     return largest_error_pts
 
@@ -31,15 +31,15 @@ def get_updates(xs, integration_point_errors, gap_xs, gap_errors, trapz_est_erro
     gap_error_pts = zip(gap_errors, gap_xs, ["gap"]*n_gaps)
     pts_errors = zip(integration_point_errors, xs)
 
-    combined_pts_errors = sorted( gap_error_pts + pts_errors )[::-1]
-    residule_error = trapz_est_error - target_uncertainty
+    combined_pts_errors = gap_error_pts + pts_errors
+    residule_error = abs(trapz_est_error) - target_uncertainty
 
     largest_error_pts = reduce_error_on_residual_error(combined_pts_errors, residule_error, convergence_rate_scaling, be_conservative)
 
     is_gap = lambda x:x[-1] == "gap"
 
-    update_xs = [e for e in largest_error_pts if not is_gap(e)]
-    new_pts = [e for e in largest_error_pts if is_gap(e)]
+    update_xs = [map(float, e) for e in largest_error_pts if not is_gap(e)]
+    new_pts = [map(float, e[:-1]) for e in largest_error_pts if is_gap(e)]
     return new_pts, update_xs
 
 def parse_args():

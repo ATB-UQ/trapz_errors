@@ -55,7 +55,7 @@ def trapz_interval_error(pts, dx):
     second_der, _ = second_derivative_with_uncertainty(pts)
     return (dx**3)/12.*np.array(second_der)
 
-def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title="", show=True):
+def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title="", show=True, x_label="x", y_label="y"):
     import os
     if not os.environ.has_key("DISPLAY"):
         import matplotlib
@@ -66,8 +66,8 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
     fig.hold(True)
     ax.errorbar(xs, ys, es, marker="o", label="Integration Points")
     ax.errorbar(gap_xs, gap_ys, 12.*np.array(gap_errors), linestyle="", label="Relative Interval Errors")
-    plt.ylabel('y', fontweight="bold")
-    plt.xlabel('x', fontweight="bold")
+    plt.ylabel(y_label, fontweight="bold")
+    plt.xlabel(x_label, fontweight="bold")
     plt.title(title, fontweight="bold")
     plt.legend(loc = 'upper right', prop={'size':11}, numpoints = 1, frameon = False)
     fig.tight_layout()
