@@ -1,4 +1,4 @@
 
-DEFAULT_FIGURE_NAME = "integration_error_analysis.png"
+DEFAULT_FIGURE_NAME = "integration_error_analysis.svg"
 IMBALANCED_2ND_DERIVATIVE_TOL = 40 #%
 CONVERGENCE_RATE_SCALING = 1
