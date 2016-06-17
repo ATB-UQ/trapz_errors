@@ -31,6 +31,9 @@ def interval_errors(xs, ys, es, forward=True):
 
     gap_xs = [ (xs[0] + xs[1])/2. ]
     gap_ys = [ calc_y_intersection_pt(pts[0], pts[1], gap_xs[0]) ]
+    # if there are only 2 points, the interval error will be zero
+    if len(pts) == 2:
+        return gap_xs, gap_ys, [0]
     gap_es = [ trapz_interval_error(pts[:3], (xs[1] - xs[0])) ]
 
     for i in range(len(xs)-3):
