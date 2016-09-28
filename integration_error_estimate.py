@@ -75,7 +75,7 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
     plt.legend(loc = 'upper right', prop={'size':11}, numpoints = 1, frameon = False)
     fig.tight_layout()
     if figure_name:
-        plt.savefig(figure_name, format="svg")
+        plt.savefig(figure_name, format="png")
     if show:
         plt.show()
 

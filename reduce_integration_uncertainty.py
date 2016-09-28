@@ -94,11 +94,4 @@ def main():
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))
 
 if __name__=="__main__":
-    LOCAL_DEBUG = True
-    if LOCAL_DEBUG:
-        import sys
-        TE = 0.3
-        sys.argv.extend(["-v","-t", str(TE), "-d", "/mddata/uqmstroe/amine_refinement/united_atom/TI_data/TISolv_15_9402_TI_H2O/avWater.dvdl"])
-        main()
-    else:
-        main()
+    main()
