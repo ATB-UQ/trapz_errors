@@ -1,6 +1,6 @@
 import numpy as np
 from config import CONVERGENCE_RATE_SCALING
-from integration_error_estimate import config_argparse, process_plot_argument, parse_user_data, \
+from calculate_error import config_argparse, process_plot_argument, parse_user_data, \
     plot_error_analysis, trapz_integrate_with_uncertainty
 from helpers import round_sigfigs, rss
 
@@ -46,14 +46,15 @@ def parse_args():
     argparser = config_argparse()
     argparser.add_argument('-t', '--target_error', type=float, required=True, nargs=1,
                         help="Target error of integration, used to determine how to reduce integration uncertainty.")
-    argparser.add_argument('-c', '--convergence_rate_scaling', type=float, nargs=1, default=CONVERGENCE_RATE_SCALING,
-                        help="Scaling factor for rate of convergence to target error i.e. determines iterations required to reach target error. "\
-                        "e.g. A value < 1 will result in more iterations but fewer overall points as the points will be concentrated in regions of high "\
+    argparser.add_argument('-r', '--convergence_rate_scaling', type=float, default=CONVERGENCE_RATE_SCALING,
+                        help="Determines the rate of convergence to the target error i.e. how many iterations will be required to reach target error. "\
+                        "A value < 1 will result in more iterations but fewer overall points as the points will be concentrated in regions of high "\
                         "uncertainty; conversely values > 1 will result it more points but fewer iterations required to reach a given target error. Default=1.")
     args = argparser.parse_args()
     figure_name = process_plot_argument(args)
-    data = parse_user_data(args.data.read())
-    return data, figure_name, args.be_conservative, args.sigfigs, args.verbose, args.target_error, args.convergence_rate_scaling
+    with open(args.data) as fh:
+        data = parse_user_data(fh.read())
+    return data, figure_name, args.conservative, args.sigfigs, args.verbose, args.target_error, args.convergence_rate_scaling
 
 def main():
     data, figure_name, be_conservative, sigfigs, verbose, target_error, convergence_rate_scaling = parse_args()

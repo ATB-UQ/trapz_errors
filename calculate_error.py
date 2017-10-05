@@ -4,7 +4,6 @@ import numpy as np
 from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
 from config import DEFAULT_FIGURE_NAME
 
-
 DO_NOT_PLOT = "DO_NOT_PLOT"
 
 def point_error_calc(xs, es):
@@ -66,13 +65,11 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
     import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    fig.hold(True)
-    ax.errorbar(xs, ys, es, marker="o", label="Integration Points")
-    ax.errorbar(gap_xs, gap_ys, 12.*np.array(gap_errors), linestyle="", label="Relative Interval Errors")
-    plt.ylabel(y_label, fontweight="bold")
-    plt.xlabel(x_label, fontweight="bold")
-    plt.title(title, fontweight="bold")
-    plt.legend(loc = 'upper right', prop={'size':11}, numpoints = 1, frameon = False)
+    ax.errorbar(xs, ys, es, marker="o")
+    plt.ylabel(y_label)
+    plt.xlabel(x_label)
+    plt.title(title)
+
     fig.tight_layout()
     if figure_name:
         plt.savefig(figure_name, format="png")
@@ -95,16 +92,16 @@ def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
 
 def config_argparse():
     argparser = argparse.ArgumentParser(description='Integration Error Estimate')
-    argparser.add_argument('-d', '--data', nargs='?', type=argparse.FileType('r'), default=sys.stdin,
-                        help="File containing data to integrate. Line format:<x> <y> [<error>]. Data can also be provided via stdin within argument.")
+    argparser.add_argument('-d', '--data', type=str, required=True,
+                        help="File containing data to integrate. Lines are read as whitespace separated values of the form: <x> <y> [<y_error>].")
     argparser.add_argument('-p', '--plot', nargs='?', type=str, default=DO_NOT_PLOT,
                         help="Show plot of integration errors, requires matplotlib. Optional argument will determine where and in what format the figure will be saved in.")
     argparser.add_argument('-s', '--sigfigs', type=int, default=3,
                         help="Number of significant figures in output. Default=3")
     argparser.add_argument('-v', '--verbose', action="store_true",
                         help="Output error breakdown.")
-    argparser.add_argument('-b', '--be_conservative', action="store_true",
-                        help="Make a conservative estimate of the uncertainty.")
+    argparser.add_argument('-c', '--conservative', action="store_true",
+                        help="Make a conservative estimate of the total truncation error; add the maximum interval error to the sum of all interval errors.")
     return argparser
 
 def process_plot_argument(args):
@@ -117,24 +114,25 @@ def parse_args():
     argparser = config_argparse()
     args = argparser.parse_args()
     figure_name = process_plot_argument(args)
-    data = parse_user_data(args.data.read())
-    return data, figure_name, args.sigfigs, args.verbose, args.be_conservative
+    with open(args.data) as fh:
+        data = parse_user_data(fh.read())
+    return data, figure_name, args.sigfigs, args.verbose, args.conservative
 
 def main():
     data, figure_name, sigfigs, verbose, be_conservative = parse_args()
     xs, ys, es = np.array(data)
 
-    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
+    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = \
+        trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
 
     round_sf = lambda x:round_sigfigs(x, sigfigs)
-    result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))
+    result_string = "{0:g} +/- {1:g}".format(round_sigfigs(integral, sigfigs + 2), round_sf(total_error))
     if verbose:
         value_error = round_sf(rss(integration_point_errors))
         print "Error from y-value uncertainty: +/- {0:g}".format(value_error)
-        truncation_error = round_sf(np.sum(gap_errors) + conservative_error_adjustment if be_conservative else np.sum(gap_errors))
-        print "Estimated truncation error: {1:g}".format(truncation_error)
+        print "Estimated total truncation error: {0:g}".format(round_sf(np.abs(np.sum(gap_errors))))
         if be_conservative:
-            print "Additional error component: {0:g}".format(round_sf(conservative_error_adjustment))
+            print "Maximum interval error: {0:g}".format(round_sf(conservative_error_adjustment))
         print "Integral: {0}".format(result_string)
     else:
         print result_string
