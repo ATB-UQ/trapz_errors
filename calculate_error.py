@@ -91,7 +91,7 @@ def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
     return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, max_interval_error
 
 def config_argparse():
-    argparser = argparse.ArgumentParser(description='Integration Error Estimate')
+    argparser = argparse.ArgumentParser()
     argparser.add_argument('-d', '--data', type=str, required=True,
                         help="File containing data to integrate. Lines are read as whitespace separated values of the form: <x> <y> [<y_error>].")
     argparser.add_argument('-p', '--plot', nargs='?', type=str, default=DO_NOT_PLOT,
