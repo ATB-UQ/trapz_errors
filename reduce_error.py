@@ -1,8 +1,12 @@
 import numpy as np
-from config import CONVERGENCE_RATE_SCALING
-from calculate_error import config_argparse, process_plot_argument, parse_user_data, \
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from integration_errors.config import CONVERGENCE_RATE_SCALING
+from integration_errors.calculate_error import config_argparse, process_plot_argument, parse_user_data, \
     plot_error_analysis, trapz_integrate_with_uncertainty
-from helpers import round_sigfigs, rss
+from integration_errors.helpers import round_sigfigs, rss
 
 def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_scaling, be_conservative):
 
@@ -56,11 +60,9 @@ def parse_args():
         data = parse_user_data(fh.read())
     return data, figure_name, args.conservative, args.sigfigs, args.verbose, args.target_error, args.convergence_rate_scaling
 
-def main():
-    data, figure_name, be_conservative, sigfigs, verbose, target_error, convergence_rate_scaling = parse_args()
-    xs, ys, es = np.array(data)
-    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
-
+def run(xs, ys, es, target_error, convergence_rate_scaling, be_conservative, figure_name, sigfigs, verbose):
+    integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = \
+        trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
     round_sf = lambda x:round_sigfigs(x, sigfigs)
     result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))
     if verbose:
@@ -93,6 +95,11 @@ def main():
 
     if figure_name:
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))
+
+def main():
+    data, figure_name, be_conservative, sigfigs, verbose, target_error, convergence_rate_scaling = parse_args()
+    xs, ys, es = np.array(data)
+    run(xs, ys, es, target_error, convergence_rate_scaling, be_conservative, figure_name, sigfigs, verbose)
 
 if __name__=="__main__":
     main()

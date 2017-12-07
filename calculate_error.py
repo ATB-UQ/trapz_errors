@@ -1,8 +1,11 @@
-import sys
 import argparse
 import numpy as np
-from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
-from config import DEFAULT_FIGURE_NAME
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from integration_errors.helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
+from integration_errors.config import DEFAULT_FIGURE_NAME
 
 DO_NOT_PLOT = "DO_NOT_PLOT"
 
@@ -58,7 +61,6 @@ def trapz_interval_error(pts, dx):
     return (dx**3)/12.*np.array(second_der)
 
 def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title="", show=True, x_label="x", y_label="y"):
-    import os
     if not os.environ.has_key("DISPLAY"):
         import matplotlib
         matplotlib.use("Agg")
@@ -118,10 +120,7 @@ def parse_args():
         data = parse_user_data(fh.read())
     return data, figure_name, args.sigfigs, args.verbose, args.conservative
 
-def main():
-    data, figure_name, sigfigs, verbose, be_conservative = parse_args()
-    xs, ys, es = np.array(data)
-
+def run(xs, ys, es, figure_name, sigfigs, verbose, be_conservative):
     integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = \
         trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=be_conservative)
 
@@ -139,6 +138,12 @@ def main():
 
     if figure_name:
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string), show=True)
+
+def main():
+    data, figure_name, sigfigs, verbose, be_conservative = parse_args()
+
+    xs, ys, es = np.array(data)
+    run(xs, ys, es, figure_name, sigfigs, verbose, be_conservative)
 
 if __name__=="__main__":
     main()

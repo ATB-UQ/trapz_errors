@@ -1,8 +1,8 @@
-from scipy.integrate import trapz
 import numpy as np
+from scipy.integrate import trapz
 from scipy import interpolate
-import sys
 import os
+import sys
 sys.path.append("../")
 
 if not os.environ.has_key("DISPLAY"):
@@ -11,11 +11,12 @@ if not os.environ.has_key("DISPLAY"):
     CAN_SHOW_PLOT = False
 else:
     CAN_SHOW_PLOT = True
+
 import matplotlib.pyplot as plt
 
-from reduce_error import reduce_error_on_residual_error
-from calculate_error import trapz_integrate_with_uncertainty, point_error_calc
-from helpers import rss, parse_user_data
+from integration_errors.reduce_error import reduce_error_on_residual_error, run as run_reduce_error
+from integration_errors.calculate_error import trapz_integrate_with_uncertainty, point_error_calc
+from integration_errors.helpers import rss, parse_user_data
 
 def integrate_with_point_uncertinaty(xs, ys, es):
     integration_error_per_point = point_error_calc(xs, es)
@@ -27,8 +28,7 @@ def run_test(xs, ys, es, x_fine=None, y_fine=None):
         print "Integral: {0}".format(integral)
         print "True truncation error: {0}".format(trapz(ys, xs) - integral)
 
-    print "Analytical integral point uncertainty: {0} +/- {1}".format(*integrate_with_point_uncertinaty(xs, ys, es))
-    trapz_integral, total_error, gap_xs, _, gap_errors, integration_point_errors, max_interval_error = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True)
+    trapz_integral, total_error, gap_xs, _, gap_errors, _, _ = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True)
     #print "Truncation error estimate: {0} +/- {1}".format(trapz_integral, total_error - rss(integration_point_errors))
     print "Combined error estimate: {0} +/- {1}".format(trapz_integral, total_error)
 
@@ -71,20 +71,7 @@ def filter_(xs, ys):
             newys.append(ys[i])
     return newxs, newys
 
-def toy_example_error_estimate():
-    N = 15
-    a = 0
-    b = np.pi
-    f = lambda x: 100*(np.sin(x) + 2*np.cos(3*x-.5) + 2*np.sin(x-.2))
-    xs = list(np.linspace(a, b, N))
-    es = np.random.uniform(0, 10, N)
-    ys = map(f, xs)
-
-    x_fine = np.linspace(a, b, N*100)
-    y_fine = map(f, x_fine)
-    run_test(xs, ys, es, x_fine, y_fine)
-
-def iterative_refinement_demonstration(data_file):
+def iterative_refinement_demonstration(data_file, target_error):
     N = 5
     a = 0
     b = 1
@@ -99,11 +86,11 @@ def iterative_refinement_demonstration(data_file):
     y_fine = map(f, x_fine)
 
     generated_pts = [xs, ys, es]
-    total_error = TARGET_ERROR + 1
-    while total_error > TARGET_ERROR:
+    total_error = target_error + 1
+    while total_error > target_error:
         gap_errors, gap_xs, total_error = run_test(*(generated_pts + [x_fine, y_fine]))
         gap_error_pts = zip(gap_errors, gap_xs, ["gap"]*len(gap_errors))
-        largest_gap_error = reduce_error_on_residual_error(gap_error_pts, total_error-TARGET_ERROR, 0.5, False)
+        largest_gap_error = reduce_error_on_residual_error(gap_error_pts, total_error-target_error, 0.5, False)
         if largest_gap_error:
             largest_gap_errors_x = zip(*largest_gap_error)[1]
         else:
@@ -111,8 +98,10 @@ def iterative_refinement_demonstration(data_file):
         generated_pts = zip(*sorted(zip(*generated_pts) + zip(largest_gap_errors_x, map(f, largest_gap_errors_x), list(np.zeros(len(largest_gap_errors_x))) )))
 
 if __name__=="__main__":
-    DATA_FILE = "eg_data.dat"
-    TARGET_ERROR = 0.5
+    eg_data = "eg_data.dat"
 
-    toy_example_error_estimate()
-    iterative_refinement_demonstration(DATA_FILE)
+    with open(eg_data) as fh:
+        xs, ys, es = parse_user_data(fh.read())
+
+    run_reduce_error(xs, ys, es, 0.5, 1, True, "test.png", 3, True)
+    iterative_refinement_demonstration(eg_data, 0.5)
