@@ -21,12 +21,13 @@ def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_s
         # Add special case for largest gap error if we're being conservative
         if be_conservative and pt == largest_gap_error_pt:
             residule_error -= abs(pt[0])
-        # Since addition of a point to an interval reduces error by a factor of 1/4 according 
-        # to the truncation error estimate method we're using => (e - e/4) = 0.75*e.
-        # We simply assume the same is true for reducing the uncertainty on an existing point.
-        # The convergence rate scaling factor allows for additional control over the number of points
-        # that will be added on each iteration.
-        residule_error -= (1./convergence_rate_scaling)*0.75*abs(pt[0])
+        else:
+            # Since addition of a point to an interval reduces error by a factor of 1/4 according 
+            # to the truncation error estimate method we're using => (e - e/4) = 0.75*e.
+            # We simply assume the same is true for reducing the uncertainty on an existing point.
+            # The convergence rate scaling factor allows for additional control over the number of points
+            # that will be added on each iteration.
+            residule_error -= (1./convergence_rate_scaling)*0.75*abs(pt[0])
 
     return largest_error_pts
 

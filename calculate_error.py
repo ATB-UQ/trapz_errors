@@ -84,11 +84,15 @@ def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
     backwards_results = interval_errors(xs, ys, es, forward=False)
     gap_xs, gap_ys, gap_errors = sorted([forward_results, backwards_results], key=lambda x:np.abs(np.sum(x[-1])))[-1]
     point_uncertainty_error = rss(list(integration_point_errors))
-    sum_gap_errors = np.abs(np.sum(gap_errors))
-
     max_interval_error = np.max(np.abs(np.concatenate((forward_results[-1], backwards_results[-1]))))
 
-    total_error = point_uncertainty_error + sum_gap_errors + (max_interval_error if be_conservative else 0.0)
+    if be_conservative:
+        gap_error_max_excluded = sorted(gap_errors, key=lambda x:abs(x))[:-1]
+        sum_gap_errors = np.abs(np.sum(gap_error_max_excluded)) + max_interval_error
+    else:
+        sum_gap_errors = np.abs(np.sum(gap_errors))
+
+    total_error = point_uncertainty_error + sum_gap_errors
 
     return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, max_interval_error
 
