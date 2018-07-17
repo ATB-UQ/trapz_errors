@@ -2,9 +2,6 @@ import numpy as np
 from scipy.integrate import trapz
 from scipy import interpolate
 import os
-import sys
-sys.path.append("../")
-
 if not os.environ.has_key("DISPLAY"):
     import matplotlib
     matplotlib.use("Agg")
@@ -13,6 +10,9 @@ else:
     CAN_SHOW_PLOT = True
 
 import matplotlib.pyplot as plt
+
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from integration_errors.reduce_error import reduce_error_on_residual_error, run as run_reduce_error
 from integration_errors.calculate_error import trapz_integrate_with_uncertainty, point_error_calc

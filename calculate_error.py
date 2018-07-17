@@ -4,8 +4,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from integration_errors.helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
-from integration_errors.config import DEFAULT_FIGURE_NAME
+from trapz_errors.helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
+from trapz_errors.config import DEFAULT_FIGURE_NAME
 
 DO_NOT_PLOT = "DO_NOT_PLOT"
 
@@ -60,7 +60,7 @@ def trapz_interval_error(pts, dx):
     second_der, _ = second_derivative_with_uncertainty(pts)
     return (dx**3)/12.*np.array(second_der)
 
-def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title="", show=True, x_label="x", y_label="y"):
+def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title="", show=False, x_label="x", y_label="y"):
     if not os.environ.has_key("DISPLAY"):
         import matplotlib
         matplotlib.use("Agg")
@@ -141,7 +141,7 @@ def run(xs, ys, es, figure_name, sigfigs, verbose, be_conservative):
         print result_string
 
     if figure_name:
-        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string), show=True)
+        plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string), show=False)
 
 def main():
     data, figure_name, sigfigs, verbose, be_conservative = parse_args()
