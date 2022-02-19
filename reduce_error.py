@@ -3,10 +3,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from trapz_errors.config import CONVERGENCE_RATE_SCALING
-from trapz_errors.calculate_error import config_argparse, process_plot_argument, parse_user_data, \
+from config import CONVERGENCE_RATE_SCALING
+from calculate_error import config_argparse, process_plot_argument, parse_user_data, \
     plot_error_analysis, trapz_integrate_with_uncertainty
-from trapz_errors.helpers import round_sigfigs, rss
+from helpers import round_sigfigs, rss
 
 def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_scaling, be_conservative):
 
