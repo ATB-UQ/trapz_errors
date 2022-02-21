@@ -4,8 +4,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from trapz_errors.helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
-from trapz_errors.config import DEFAULT_FIGURE_NAME
+from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
+from config import DEFAULT_FIGURE_NAME
 
 DO_NOT_PLOT = "DO_NOT_PLOT"
 
