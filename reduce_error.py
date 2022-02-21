@@ -66,31 +66,31 @@ def run(xs, ys, es, target_error, convergence_rate_scaling, be_conservative, fig
     result_string = "{0:g} +/- {1:g}".format(round_sf(integral), round_sf(total_error))
     if verbose:
         value_error = round_sf(rss(integration_point_errors))
-        print "Error from y-value uncertainty: +/- {0:g}".format(value_error)
+        print("Error from y-value uncertainty: +/- {0:g}".format(value_error))
         truncation_error = round_sf(np.sum(gap_errors) if be_conservative else np.sum(gap_errors))
-        print "Estimated truncation error: {0:g}".format(truncation_error)
+        print("Estimated truncation error: {0:g}".format(truncation_error))
         if be_conservative:
-            print "Additional error component: {0:g}".format(round_sf(conservative_error_adjustment))
-        print "Integral: {0}".format(result_string)
+            print("Additional error component: {0:g}".format(round_sf(conservative_error_adjustment)))
+        print("Integral: {0}".format(result_string))
 
-        print "Truncation errors: interval midpoint -> error"
-        print "\n".join(["{1:<6.4f} -> {0:>7.4f}".format(*map(round_sf, d)) for d in sorted(zip(gap_errors, gap_xs), key=lambda x:abs(x[0]))[::-1]])
-        print "Point errors: point -> +/- error"
-        print "\n".join(["{1:<6.4f} -> +/- {0:6.4f}".format(*map(round_sf, d)) for d in sorted(zip(integration_point_errors, xs))[::-1]])
+        print("Truncation errors: interval midpoint -> error")
+        print("\n".join(["{1:<6.4f} -> {0:>7.4f}".format(*map(round_sf, d)) for d in sorted(zip(gap_errors, gap_xs), key=lambda x:abs(x[0]))[::-1]]))
+        print("Point errors: point -> +/- error")
+        print("\n".join(["{1:<6.4f} -> +/- {0:6.4f}".format(*map(round_sf, d)) for d in sorted(zip(integration_point_errors, xs))[::-1]]))
 
     else:
-        print result_string
+        print(result_string)
 
     if total_error > target_error:
         new_pts, update_xs = get_updates(xs, integration_point_errors, gap_xs, gap_errors, total_error, target_error, convergence_rate_scaling, be_conservative=be_conservative)
         if new_pts:
-            print "Suggested new points:"
-            print ",".join(["{0:g}".format(round_sf(p[1])) for p in new_pts])
+            print("Suggested new points:")
+            print(",".join(["{0:g}".format(round_sf(p[1])) for p in new_pts]))
         if update_xs:
-            print "Suggested to reduce uncertainty in existing points:"
-            print ",".join(["{0:g}".format(round_sf(p[1])) for p in update_xs])
+            print("Suggested to reduce uncertainty in existing points:")
+            print(",".join(["{0:g}".format(round_sf(p[1])) for p in update_xs]))
     else:
-        print "Target error has been reached."
+        print("Target error has been reached.")
 
     if figure_name:
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string))

@@ -47,7 +47,6 @@ def interval_errors(xs, ys, es, forward=True):
         else:
             # reverse
             gap_es.append( trapz_interval_error(pts[i+1:i+4], dx) )
-        #print gap_es[-1]
 
     gap_xs.append( (xs[-1] + xs[-2])/2. )
     gap_ys.append( calc_y_intersection_pt(pts[-2], pts[-1], gap_xs[-1]) )
@@ -132,13 +131,13 @@ def run(xs, ys, es, figure_name, sigfigs, verbose, be_conservative):
     result_string = "{0:g} +/- {1:g}".format(round_sigfigs(integral, sigfigs + 2), round_sf(total_error))
     if verbose:
         value_error = round_sf(rss(integration_point_errors))
-        print "Error from y-value uncertainty: +/- {0:g}".format(value_error)
-        print "Estimated total truncation error: {0:g}".format(round_sf(np.abs(np.sum(gap_errors))))
+        print("Error from y-value uncertainty: +/- {0:g}".format(value_error))
+        print("Estimated total truncation error: {0:g}".format(round_sf(np.abs(np.sum(gap_errors)))))
         if be_conservative:
-            print "Maximum interval error: {0:g}".format(round_sf(conservative_error_adjustment))
-        print "Integral: {0}".format(result_string)
+            print("Maximum interval error: {0:g}".format(round_sf(conservative_error_adjustment)))
+        print("Integral: {0}".format(result_string))
     else:
-        print result_string
+        print(result_string)
 
     if figure_name:
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string), show=False)
