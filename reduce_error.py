@@ -9,12 +9,10 @@ from calculate_error import config_argparse, process_plot_argument, parse_user_d
 from helpers import round_sigfigs, rss
 
 def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_scaling, be_conservative):
-
-    if be_conservative:
-        # since pts are already sorted we can simply filter out all non-gap points and take the first which remains
-        largest_gap_error_pt = [pt for pt in error_pts if pt[-1] == "gap"][0]
+    sorted_error_pts = sorted(error_pts, key=lambda x:abs(x[0]), reverse=True)
+    largest_gap_error_pt = [pt for pt in sorted_error_pts if pt[-1] == "gap"][0]
     largest_error_pts = []
-    for pt in sorted(error_pts, key=lambda x:abs(x[0]))[::-1]:
+    for pt in sorted_error_pts:
         if residule_error < 0:
             break
         largest_error_pts.append(pt)
@@ -22,7 +20,7 @@ def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_s
         if be_conservative and pt == largest_gap_error_pt:
             residule_error -= abs(pt[0])
         else:
-            # Since addition of a point to an interval reduces error by a factor of 1/4 according 
+            # Since addition of a point to an interval reduces error by a factor of 1/4 according
             # to the truncation error estimate method we're using => (e - e/4) = 0.75*e.
             # We simply assume the same is true for reducing the uncertainty on an existing point.
             # The convergence rate scaling factor allows for additional control over the number of points
