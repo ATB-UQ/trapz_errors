@@ -1,13 +1,12 @@
 import argparse
 import numpy as np
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
-from config import DEFAULT_FIGURE_NAME
+from trapz_errors.helpers import round_sigfigs, rss, calc_y_intersection_pt, second_derivative_with_uncertainty, parse_user_data
+from trapz_errors.config import DEFAULT_FIGURE_NAME
 
 DO_NOT_PLOT = "DO_NOT_PLOT"
+
 
 def point_error_calc(xs, es):
     '''
@@ -24,12 +23,13 @@ def point_error_calc(xs, es):
     # return half the RSS of individual errors (factor of 2 is due to double counting of domain).
     return errors
 
+
 def interval_errors(xs, ys, es, forward=True):
     '''
     Based on analytical Trapezoidal error function with 2nd derivative estimated numerically:
     https://en.wikipedia.org/wiki/Trapezoidal_rule#Error_analysis
     '''
-    pts = zip(xs, ys, es)
+    pts = list(zip(xs, ys, es))
 
     gap_xs = [ (xs[0] + xs[1])/2. ]
     gap_ys = [ calc_y_intersection_pt(pts[0], pts[1], gap_xs[0]) ]
@@ -54,13 +54,15 @@ def interval_errors(xs, ys, es, forward=True):
 
     return gap_xs, gap_ys, gap_es
 
+
 def trapz_interval_error(pts, dx):
     #second_der, error = second_derivative_with_uncertainty(pts)
     second_der, _ = second_derivative_with_uncertainty(pts)
     return (dx**3)/12.*np.array(second_der)
 
+
 def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None, title="", show=False, x_label="x", y_label="y"):
-    if not os.environ.has_key("DISPLAY"):
+    if not "DISPLAY" in os.environ:
         import matplotlib
         matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -76,6 +78,7 @@ def plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name=None
         plt.savefig(figure_name, format="png")
     if show:
         plt.show()
+
 
 def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
     integration_point_errors = point_error_calc(xs, es)
@@ -93,7 +96,8 @@ def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
 
     total_error = point_uncertainty_error + sum_gap_errors
 
-    return np.trapz(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, max_interval_error
+    return np.trapezoid(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, max_interval_error
+
 
 def config_argparse():
     argparser = argparse.ArgumentParser()
@@ -109,11 +113,13 @@ def config_argparse():
                         help="Make a conservative estimate of the total truncation error; add the maximum interval error to the sum of all interval errors.")
     return argparser
 
+
 def process_plot_argument(args):
     figure_name = DEFAULT_FIGURE_NAME if args.plot is None else args.plot
     figure_name = False if figure_name == DO_NOT_PLOT else figure_name
     figure_name = "{0}.png".format(figure_name) if (figure_name and "." not in figure_name) else figure_name
     return figure_name
+
 
 def parse_args():
     argparser = config_argparse()
@@ -122,6 +128,7 @@ def parse_args():
     with open(args.data) as fh:
         data = parse_user_data(fh.read())
     return data, figure_name, args.sigfigs, args.verbose, args.conservative
+
 
 def run(xs, ys, es, figure_name, sigfigs, verbose, be_conservative):
     integral, total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, conservative_error_adjustment = \
@@ -142,11 +149,13 @@ def run(xs, ys, es, figure_name, sigfigs, verbose, be_conservative):
     if figure_name:
         plot_error_analysis(xs, ys, es, gap_xs, gap_ys, gap_errors, figure_name, title="Integral: {0}".format(result_string), show=False)
 
+
 def main():
     data, figure_name, sigfigs, verbose, be_conservative = parse_args()
 
     xs, ys, es = np.array(data)
     run(xs, ys, es, figure_name, sigfigs, verbose, be_conservative)
+
 
 if __name__=="__main__":
     main()

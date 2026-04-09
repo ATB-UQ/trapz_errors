@@ -1,12 +1,10 @@
 import numpy as np
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from config import CONVERGENCE_RATE_SCALING
-from calculate_error import config_argparse, process_plot_argument, parse_user_data, \
+from trapz_errors.config import CONVERGENCE_RATE_SCALING
+from trapz_errors.calculate_error import config_argparse, process_plot_argument, parse_user_data, \
     plot_error_analysis, trapz_integrate_with_uncertainty
-from helpers import round_sigfigs, rss
+from trapz_errors.helpers import round_sigfigs, rss
+
 
 def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_scaling, be_conservative):
     sorted_error_pts = sorted(error_pts, key=lambda x:abs(x[0]), reverse=True)
@@ -31,8 +29,8 @@ def reduce_error_on_residual_error(error_pts, residule_error, convergence_rate_s
 
 def get_updates(xs, integration_point_errors, gap_xs, gap_errors, trapz_est_error, target_uncertainty, convergence_rate_scaling, be_conservative=True):
     n_gaps = len(gap_xs)
-    gap_error_pts = zip(gap_errors, gap_xs, ["gap"]*n_gaps)
-    pts_errors = zip(integration_point_errors, xs)
+    gap_error_pts = list(zip(gap_errors, gap_xs, ["gap"]*n_gaps))
+    pts_errors = list(zip(integration_point_errors, xs))
 
     combined_pts_errors = gap_error_pts + pts_errors
     residule_error = abs(trapz_est_error) - target_uncertainty
@@ -41,8 +39,8 @@ def get_updates(xs, integration_point_errors, gap_xs, gap_errors, trapz_est_erro
 
     is_gap = lambda x:x[-1] == "gap"
 
-    update_xs = [map(float, e) for e in largest_error_pts if not is_gap(e)]
-    new_pts = [map(float, e[:-1]) for e in largest_error_pts if is_gap(e)]
+    update_xs = [list(map(float, e)) for e in largest_error_pts if not is_gap(e)]
+    new_pts = [list(map(float, e[:-1])) for e in largest_error_pts if is_gap(e)]
     return new_pts, update_xs
 
 def parse_args():
