@@ -99,6 +99,79 @@ def trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True):
     return np.trapezoid(ys, xs), total_error, gap_xs, gap_ys, gap_errors, integration_point_errors, max_interval_error
 
 
+def interval_errors_with_uncertainty(xs, ys, es, forward=True):
+    '''
+    interval_errors, keeping what it discards: the uncertainty of each interval's
+    truncation estimate, propagated from the point errors through the numerical
+    second derivative. Returns (gap_xs, gap_errors, gap_error_sigmas).
+
+    An interval whose |error| is not well above its sigma has a curvature
+    estimate set by point noise, not by the curve, and refining it chases noise.
+    '''
+    n = len(xs)
+    gap_xs = [(xs[i] + xs[i + 1]) / 2. for i in range(n - 1)]
+    if n == 2:
+        return gap_xs, [0.], [0.]
+    pts = list(zip(xs, ys, es))
+    gap_errors, gap_sigmas = [], []
+    for i in range(n - 1):
+        # the three points whose curvature stands for interval i: the same
+        # choice interval_errors makes, the end intervals using the only
+        # stencil they have
+        if i == 0:
+            stencil = pts[:3]
+        elif i == n - 2:
+            stencil = pts[-3:]
+        else:
+            stencil = pts[i - 1:i + 2] if forward else pts[i:i + 3]
+        second_der, second_der_sigma = second_derivative_with_uncertainty(stencil)
+        dx = xs[i + 1] - xs[i]
+        gap_errors.append(float((dx ** 3) / 12. * second_der))
+        gap_sigmas.append(float((dx ** 3) / 12. * second_der_sigma))
+    return gap_xs, gap_errors, gap_sigmas
+
+
+def trapz_integrate_decomposed(xs, ys, es, noise_sigmas=2.):
+    '''
+    Trapezoid integral with its uncertainty kept as separate quantities rather
+    than one number, since they mean different things:
+
+    sigma_points  1 sigma of the integral from the point errors, exact for the
+                  trapezoid rule if the point errors are independent 1 sigmas
+    quad_signed   the estimated truncation bias, signed interval errors summed
+                  (the quantity trapz_integrate_with_uncertainty takes |.| of)
+    quad_abs      sum of |interval error|: no cancellation between intervals of
+                  opposite curvature, so a bound rather than an estimate
+    legacy_total  what trapz_integrate_with_uncertainty(be_conservative=True)
+                  reports, which adds a sigma and a bias bound linearly
+
+    Per interval, the chosen difference direction is the one
+    trapz_integrate_with_uncertainty chooses (larger |signed sum|), and an
+    interval is noise_dominated when |error| < noise_sigmas x its own sigma.
+
+    Nothing here changes what the legacy function reports; a reducer that uses
+    these quantities is a new reducer version.
+    '''
+    xs, ys, es = (np.asarray(v, dtype=float) for v in (xs, ys, es))
+    point_errors = point_error_calc(xs, es)
+    forward = interval_errors_with_uncertainty(xs, ys, es, forward=True)
+    backward = interval_errors_with_uncertainty(xs, ys, es, forward=False)
+    gap_xs, gap_errors, gap_sigmas = max([forward, backward], key=lambda r: abs(np.sum(r[1])))
+    _, legacy_total, *_ = trapz_integrate_with_uncertainty(xs, ys, es, be_conservative=True)
+    return {
+        "integral": float(np.trapezoid(ys, xs)),
+        "sigma_points": float(rss(point_errors)),
+        "point_errors": [float(e) for e in point_errors],
+        "gap_xs": [float(x) for x in gap_xs],
+        "gap_errors": gap_errors,
+        "gap_error_sigmas": gap_sigmas,
+        "noise_dominated": [bool(abs(e) < noise_sigmas * s) for e, s in zip(gap_errors, gap_sigmas)],
+        "quad_signed": float(np.sum(gap_errors)),
+        "quad_abs": float(np.sum(np.abs(gap_errors))),
+        "legacy_total": float(legacy_total),
+    }
+
+
 def config_argparse():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('-d', '--data', type=str, required=True,
