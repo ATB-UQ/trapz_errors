@@ -3,3 +3,6 @@
 .pydevproject
 *.egg-info/
 __pycache__/
+
+# Plots written by the tests
+test/*.png
